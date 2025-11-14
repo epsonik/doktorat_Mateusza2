@@ -1,0 +1,31 @@
+\begin{table}
+\centering
+\caption{Zestawienie zbiorów danych}\label{tab:zbiory_danych_zestawienie}
+
+\resizebox{\textwidth}{!}{
+\begin{threeparttable}
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+\textbf{
+\begin{tabular}[c]{@{}l@{}}Nazwa zbioru\end{tabular}}    & \textbf{
+\begin{tabular}[c]{@{}l@{}}Rok powstania\\ zbioru\end{tabular}}    & \textbf{CAŁK\tnote{1}} & \textbf{TREN\tnote{2}} & \textbf{WAL\tnote{3}} & \textbf{TEST\tnote{4}} & \textbf{L\tnote{5}} \\ \hline
+SBU Captions Dataset~\cite{Ordonez2011Im2Text} & 2011 & 1000000 & NO & NO & NO & 1 \\ \hline
+Flickr8k~\cite{Hadosh2013Framing} & 2013 & 8092 & 6092 & 1000 & 1000 & 5 \\ \hline
+Flickr30K~\cite{Youngetal2014Image} & 2014 & 31783 & 29783 & 1000 & 1000 & 5 \\ \hline
+MS COCO 2014 ~\cite{Lin2014Microsoft, Chen2015microsoftCOCO} & 2014 & 164062 & 82783 & 40504 & 40775 & 5 \\ \hline
+\begin{tabular}[c]{@{}l@{}}MS COCO 2014\\ wg Karpathy'ego~\cite{Lin2014Microsoft, Chen2015microsoftCOCO} \end{tabular} 
+& 2015 & 123287 & 113287 & 5000 & 5000 & 5 \\ \hline
+Visual Genome~\cite{Krishna2016Visualgenome} & 2016 & 108077 & NO & NO & NO & \textbf{50\tnote{6}}\\ \hline
+Google’s Conceptual Captions~\cite{Changpinyo2021Cc12m} & 2018 &  3346732& 3318333 & 15840 & 12559 & 1 \\ \hline
+TextCaps~\cite{sidorov2019textcaps} & 2019 & 28408 & 21953 & 3166 & 3289 & 5 \\ \hline
+\end{tabular}
+\begin{tablenotes}[para, flushleft]
+       \item [1] Liczba obrazów
+        \item [2] Liczba elementów w zbiorze treningowym
+       \item [3] Liczba elementów w zbiorze walidacyjnym
+        \item [4] Liczba elementów w zbiorze testowym
+       \item [5] Liczba podpisów dla jednego obrazu
+       \item  [6] Do 50 podpisów regionów dla każdego obrazu.
+\end{tablenotes}
+\end{threeparttable}}
+\end{table}

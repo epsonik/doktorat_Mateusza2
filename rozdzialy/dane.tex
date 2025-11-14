@@ -1,0 +1,392 @@
+\chapter{Zbiory danych i ewaluacja rezultatów}
+\label{rozdzial:metryki}
+Zbiory danych wykorzystywane w zadaniu automatycznego generowania podpisów do obrazów składają się z par (obraz, podpis). Jakość i charakterystyka tych zbiorów, zarówno w warstwie wizualnej, jak i lingwistycznej, determinują nie tylko skuteczność trenowanych modeli, ale również złożoność procesu ewaluacji ich wyników. Ocena jakości generowanych podpisów jest zadaniem wieloaspektowym, wymagającym uwzględnienia kryteriów technicznych i językowych~\cite{Reiter2009Investigation}.
+
+W niniejszym rozdziale dokonano przeglądu dostępnych zbiorów danych stosowanych w badaniach nad automatycznym generowaniem podpisów, takich jak Microsoft COCO czy Google Conceptual Captions. Następnie przeprowadzono analizę metryk ewaluacyjnych, rozpoczynając od klasycznych opartych na n-gramach, jak BLEU, czy ROUGE, METEOR, CIDEr przez metryki uwzględniające aspekty semantyczne, jak SPICE, czy WMD. Rozdział zamyka omówienie roli i metodologii oceny ludzkiej jako ostatecznego weryfikatora jakości generowanych podpisów.
+
+
+\section{Zbiory danych}
+\input{tabele/zbiory_danych_zestawienie}
+\input{zdjecia/przykladowe_zdjecia_zbiory/przykladowe_zdjecia_zbiory}
+Zbiory danych w zadaniu automatycznego generowania podpisów do obrazów pełnią dwie funkcje. Po pierwsze stanowią podstawę empiryczną procesu uczenia, gdzie model uczy się zależności między domeną wizualną a językową. Po drugie, służą jako punkt odniesienia do obiektywnej ewaluacji i porównywania postępów w tej dziedzinie. Ich jakość i przydatność są determinowane przez następujące atrybuty.
+
+Najważniejszy to zróżnicowanie tematyczne. Zbiór danych powinien odzwierciedlać szerokie spektrum scen, obiektów i interakcji, obejmując zróżnicowanie tematyczne i formalne. Wysoka wariancja w danych treningowych jest warunkiem koniecznym dla zdolności modelu do generalizacji na dane spoza zbioru uczącego.
+
+Równie istotna jest charakterystyka lingwistyczna podpisów. Wpływa ona bezpośrednio na zdolność modelu do generowania naturalnych i adekwatnych podpisów. Podpisy denotacyjne koncentrują się na obiektywnym opisie treści wizualnej i dominują w standardowych zbiorach referencyjnych, takich jak MS COCO. Z kolei podpisy konotacyjne mogą zawierać elementy interpretacyjne lub emocjonalne, wymagając od modelu zdolności do rozumienia kontekstowego~\cite{Rao2017brief}.
+
+Ostatecznie, specyfikę danych warunkuje również  źródło ich akwizycji. Dane pozyskiwane w sposób kontrolowany z wykorzystaniem dedykowanych platform typu Amazon Mechanical Turk, cechują się wysoką spójnością i jakością. Zbiory pozyskiwane automatycznie oferują znacznie większą skalę i różnorodność, jednak kosztem wysokiego poziomu szumu informacyjnego. Stawia to dodatkowe wyzwania na etapie przetwarzania wstępnego.
+
+Reasumując, świadomy dobór zbioru danych warunkuje powodzenie projektu badawczego oraz rzetelną interpretację uzyskanych wyników. Poniżej omówiono najważniejsze zbiory danych stosowane w tej dziedzinie. Zestawienie ich atrybutów przedstawiono w Tabeli~\ref{tab:zbiory_danych_zestawienie}, a przykłady wizualne na Rysunku~\ref{fig:przykladowe_zdjecia_zbiory}.
+
+Szerszy przegląd zbiorów danych stosowanych w zadaniach multimodalnych, wykraczający poza generowanie podpisów, można znaleźć w pracy~\cite{Ferraro2015Survey}, która zawiera również dodatkowe analizy statystyczne dotyczące złożoności syntaktycznej i semantycznej podpisów.
+
+\subsection{Flickr}
+Jednymi z pierwszych zbiorów danych, które ukształtowały wczesne badania nad generowaniem automatycznych podpisów do obrazów, są kolekcje Flickr8k~\cite{Hadosh2013Framing} oraz jego późniejsze rozszerzenie, Flickr30k~\cite{Youngetal2014Image}. Obrazy do obu zbiorów pozyskano z serwisu Flickr, selekcjonując fotografie przedstawiające ludzi lub zwierzęta w trakcie dających się opisać czynności. Istotnym elementem obu zasobów jest ujednolicona metoda akwizycji podpisów, gdzie dla każdego obrazu zebrano pięć niezależnych, denotatywnych podpisów, wygenerowanych w ramach kontrolowanego procesu przez pracowników platformy Amazon Mechanical Turk.
+
+Zbiór Flickr8k, wprowadzony w 2013 roku, liczy 8092 obrazy, dla których utrwalono standardowy podział na zbiór treningowy 6000, walidacyjny 1000 i testowy 1000. Wprowadzony rok później Flickr30k stanowi jego rozszerzenie do 31 783 fotografii. Standardowy podział liczy 28783 obrazy treningowe i 1000 obrazów w zbiorze testowym oraz walidacyjnym. 
+
+\subsection{Microsoft COCO}
+Wprowadzony w 2014 roku zbiór Microsoft COCO (Common Objects in Context)~\cite{Lin2014Microsoft, Chen2015microsoftCOCO} wywarło znaczący wpływ w badaniach nad automatycznym podpisywaniem obrazów. Jego opracowanie motywowane było potrzebą stymulowania postępów w analizie obiektów w ich naturalnym otoczeniu, z wiernym odzwierciedleniem złożoności rzeczywistych scen wizualnych. 
+
+Realizację tego celu oparto na trzech założeniach. Po pierwsze, zbiór koncentruje się na obiektach w ich typowym kontekście, uwzględniając interakcje i wzajemne przesłanianie. Stanowiło to odejście od analizy izolowanych instancji. Po drugie, zamiast tradycyjnych ramek ograniczających (\gls{gls:bounding-box}), wprowadzono adnotacje na poziomie masek segmentacyjnych, aby precyzyjnie predykować lokalizacje obiektów. Po trzecie, stworzono podstawy do badań nad holistycznym rozumieniem sceny w dziedzinie automatycznego podpisywania obrazów, poprzez zebranie pięciu unikalnych ludzkich podpisów dla każdego obrazu.
+
+Cechą wyróżniającą MS COCO jest jego wielozadaniowy charakter. Zbiór ten integruje na tych samych obrazach adnotacje umożliwiające prowadzenie badań w komplementarnych dziedzinach widzenia komputerowego, takich jak detekcja obiektów, segmentacja instancji, analiza postawy człowieka oraz generowanie podpisów.
+
+Procedura budowy zasobu była wieloetapowa i realizowana poprzez platformę Amazon Mechanical Turk. Proces rozpoczęto od zdefiniowania 91 kategorii powszechnie występujących obiektów. Następnie, przy użyciu zapytań ukierunkowanych na sceny o dużej gęstości obiektów, pozyskano obrazy z serwisu Flickr. W kolejnym kroku pracownicy dokonywali wstępnej klasyfikacji, oznaczając obecność obiektów z predefiniowanych kategorii. Po tej weryfikacji inna grupa pracowników, posługując się dedykowanym narzędziem, dokonywała segmentacji poprzez wyznaczanie dokładnych konturów każdej instancji obiektu. Zgromadzony w ten sposób zbiór przefiltrowano, aby wyeliminować obrazy o nieodpowiednich wymiarach lub te, które nie spełniały założonych kryteriów kompozycyjnych. 
+
+Finalnym etapem było pozyskiwanie podpisów. Każdy obraz przedstawiono pięciu niezależnym pracownikom, których zadaniem było sformułowanie zwięzłego zdania opisującego scenę, ze szczególnym uwzględnieniem obiektów i relacji między nimi. Rozdzielenie zadań i zaangażowanie wielu niezależnych osób zagwarantowało obiektywizm oraz różnorodność językową tworzonych podpisów. Proces ten był wspierany przez mechanizmy walidacji i kontroli jakości, które obejmowały zarówno ocenę automatyczną, jak i weryfikację przez kolejną grupę niezależnych recenzentów.
+
+W rezultacie powstał zbiór zawierający łącznie 164062 obrazów, na których oznaczono 2,5 miliona instancji obiektów należących do 91 kategorii, przy średniej gęstości 7,7 obiektu na obraz. Zbiór testowy zawiera 40775 obrazów, gdzie podpisy nie są dostępne publicznie. Co istotne, MS COCO dostarcza pięć niezależnych, unikalnych podpisów w języku naturalnym, gdzie każdy został stworzony przez innego człowieka. Dzięki temu podpisy odzwierciedlają różnorodność ludzkiej percepcji i języka. Dostarczają nie tylko bogatego materiału do trenowania modeli, ale również umożliwiają stosowanie zaawansowanych metryk ewaluacyjnych, takich jak CIDEr.
+
+Obok oficjalnej dystrybucji danych, w badaniach nad generowaniem podpisów standardowo stosuje się podział zaproponowany przez Andreja Karpathy’ego~\cite{Karpathy2015Deep}, gdzie dokonano reorganizacji oryginalnego zbioru treningowego i walidacyjnego. Zdefiniowano zbiór testowy liczący 5000 obrazów oraz zbiór walidacyjny o tej samej wielkości. Pozostałe 113287 obrazów z oryginalnych zasobów treningowych i walidacyjnych przeznaczono na zbiór treningowy.
+
+Wprowadzona w 2017 roku aktualizacja zbioru zoptymalizowała podział danych. Większość obrazów z zestawu walidacyjnego z 2014 roku włączono do zbioru treningowego, a zbiór walidacyjny zredukowano. Zmiana ta miała na celu przyspieszenie iteracyjnych cykli trenowania i ewaluacji modeli. Do dnia dzisiejszego MS COCO jest jednym z najważniejszych i najpowszechniej stosowanych zasobów badawczych w domenie przetwarzania języka naturalnego.
+
+\subsection{Google’s Conceptual Captions}
+W odróżnieniu od precyzyjnie adnotowanych, lecz kosztownych w akwizycji zbiorów danych, zbiór GCC (Google’s Conceptual Captions)~\cite{Piyush2018Conceptual} opublikowany w 2018, odchodzi od ręcznego podpisywania obrazów, prezentując w pełni zautomatyzowane podejście do akwizycji danych na masową skalę. GCC powstał w wyniku ekstrakcji i wieloetapowej filtracji par (obraz–podpis) z miliardów stron internetowych. W efekcie zgromadzono 3346732 par obrazów z podpisami w języku angielskim.
+
+Podstawowym źródłem danych tekstowych dla GCC były atrybuty "alt-text" (tekst alternatywny) powiązane z obrazami w kodzie HTML. Atrybuty te, pierwotnie zaprojektowane w celu poprawy dostępności cyfrowej charakteryzowały się jednak znaczną niejednorodnością i zawierały liczne treści nierelewantne, takie jak komunikaty nawigacyjne czy słowa kluczowe.
+
+Dlatego zaimplementowano wieloetapowy potok przetwarzania w celu oczyszczenia zbioru danych. Proces ten miał na celu wyodrębnienie podpisów o wysokim poziomie abstrakcji, które syntetyzują semantykę sceny, zamiast ograniczać się do dosłownego wyliczania obiektów. Faza pierwsza polegała na zastosowaniu filtrów heurystycznych, które eliminowały podpisy zbyt krótkie, zbyt długie, zawierające niedozwolone znaki lub niemające cech języka naturalnego. W fazie drugiej wykorzystano zbiór modeli z dziedzin NLP oraz wizji komputerowej do odrzucenia podpisów o niskiej zgodności semantycznej z obrazem, a także tych zawierających nazwy własne i inne informacje nieopisowe.
+
+Finalny zbiór danych podzielono na część treningową 3 318 333 pary, walidacyjną 15 840 par oraz testową 12 559 par. Fundamentalną zaletą GCC jest jego skala i różnorodność, która znacząco przewyższa zbiory adnotowane manualnie.
+
+\subsection{Zbiór SBU}
+Koncepcję wykorzystania zasobów internetowych zastosowano podczas budowy zbioru SBU (Stony Brook University) Captioned Photo Dataset~\cite{Ordonez2011Im2Text}. W odróżnieniu od GCC źródłem danych nie były atrybuty alt-text, lecz podpisy organicznie tworzone przez użytkowników serwisu Flickr. Zbiór ten obejmuje milion par obraz–podpis i został zaprojektowany z myślą o pozyskaniu podpisów charakteryzujących się większą naturalnością i różnorodnością językową niż te pochodzące z kontrolowanych procesów generowania podpisów.
+
+Akwizycję danych oparto na zapytaniach do wyszukiwarki platformy, wykorzystując kombinacje nacechowanych wizualnie części mowy, aby pozyskać pełne, deskryptywne zdania. Zebrane w ten sposób dane przefiltrowano. Odrzucono zdania składające się z pojedynczego słowa, daty oraz nazwy generowane przez aparaty fotograficzne. Nałożono kryterium składniowe, gdzie każdy podpis musiał zawierać co najmniej jeden rzeczownik oraz jeden czasownik. Promowało to poprawne gramatycznie oraz opisowe zdania.
+
+Pomimo zastosowanych mechanizmów filtracji, istotnym ograniczeniem zbioru SBU jest wysoki poziom szumu informacyjnego. Jest to naturalna konsekwencja automatycznej akwizycji. Ponadto, zarówno treść wizualna, jak i stylistyka językowa odzwierciedlają specyfikę serwisu Flickr z okresu, w którym dane były zbierane, co wprowadza stronniczość w modelach.
+
+\subsection{Zbiory wyspecjalizowane}
+W odpowiedzi na ograniczenia zbiorów ogólnego przeznaczenia powstały zasoby wyspecjalizowane, eksplorujące nowe aspekty zadania automatycznego generowania podpisów do obrazów.
+
+Zbiór danych Visual Genome~\cite{Krishna2016Visualgenome} opublikowany w 2016 roku porzuca paradygmat podpisów opisujących globalnie obraz na rzecz gęstej adnotacji regionów, obiektów i relacji między nimi. Celem było stworzenie uporządkowanej, grafowej reprezentacji wiedzy o treści obrazu. Każdy ze 108 077 obrazów w zbiorze jest opisany za pomocą grafów scen, zawierających adnotacje dotyczące obiektów, ich atrybutów i wzajemnych relacji.
+
+Visual Genome znalazł zastosowanie w zadaniach wymagających głębokiej interpretacji wizualnej, takich jak rozpoznawanie relacji między obiektami czy generowanie scen na podstawie opisu grafowego. W efekcie powstał pomost między percepcją a optymalną obliczeniowo reprezentacją wiedzy. 
+
+
+Zbiór danych TextCaps~\cite{sidorov2019textcaps} zaprojektowano w 2020 w celu przezwyciężenia problemu ignorowania przez modele informacji tekstowej obecnej na obrazach. Składa się z 28 408 obrazów, dla których warunkiem poprawnego wygenerowania podpisu jest odwołanie się do tekstu widocznego na scenie. Zadanie to wymaga od modelu nie tylko zlokalizowania i rozpoznania tekstu za pomocą mechanizmów OCR (\gls{ocr}), ale również jego integracji z globalnym kontekstem wizualnym w ramach spójnego gramatycznie i semantycznie zdania.
+
+\section{Ewaluacja rezultatów}
+Ewaluacja jakości automatycznie generowanych podpisów stanowi jedno z kluczowych wyzwań w tej dziedzinie. W odróżnieniu od zadań o jednoznacznie zdefiniowanej odpowiedzi, dla pojedynczego obrazu może istnieć wiele poprawnych i adekwatnych opisów. Ta inherentna wieloznaczność wymusza stosowanie złożonych metod oceny. W literaturze przedmiotu wykształciło się podejście ilościowe  oparte na metrykach automatycznych oraz jakościowe, bazujące na ocenie ludzkiej.
+
+Metryki automatyczne to zbiór algorytmów, które obiektywnie i powtarzalnie kwantyfikują podobieństwo pomiędzy podpisem kandydującym, wygenerowanym przez model a zbiorem podpisów referencyjnych stworzonych przez ludzi. Ich główną zaletą jest skalowalność i niski koszt, co czyni je podstawowym narzędziem w iteracyjnym procesie uczenia modeli. Ich wadą jest jednak fakt, że opierając się głównie na analizie zgodności leksykalnej. W efekcie stanowią jedynie aproksymację rzeczywistej jakości językowej i nie są w stanie w pełni uchwycić niuansów semantycznych, poprawności gramatycznej czy adekwatności kontekstowej.
+
+Złotym standardem ewaluacji jest  ocena ludzka. Człowiek jest w stanie dokonać holistycznej oceny, uwzględniając wszystkie aspekty jakościowe podpisu – od wierności semantycznej, przez poprawność gramatyczną, aż po jego naturalność. Metodologia ta jest jednak procesem czasochłonnym, kosztownym i z natury subiektywnym.
+
+W konsekwencji rzetelna i wiarygodna ewaluacja systemów do automatycznego podpisywania obrazów wymaga kombinacji obu podejść. Metryki automatyczne służą za podstawowe narzędzie do szybkiego prototypowania i porównywania architektur, podczas gdy ocena ludzka jest stosowana do ostatecznej weryfikacji jakości i użyteczności generowanych podpisów.
+
+
+\subsection{Metryki oparte na n-gramach -- analiza zgodności leksykalnej}
+Najczęściej stosowaną klasą metryk automatycznych w dziedzinie automatycznego podpisywania obrazów są miary oparte na analizie zgodności n-gramów, czyli ciągłych sekwencji $n$ jednostek tekstowych. Przykładowo, unigramy (1-gramy) to pojedyncze słowa, bigramy (2-gramy) to pary sąsiadujących słów. Ich fundamentalne założenie polega na kwantyfikacji jakości podpisu kandydującego poprzez stopień, w jakim jego n-gramy pokrywają się z n-gramami obecnymi w zestawie podpisów referencyjnych. Zaletą tego podejścia jest prostota koncepcyjna, niska złożoność obliczeniowa oraz niezależność od specyfiki języka. Do tego rodzaju metryk należą BLEU i ROUGE oraz bardziej zaawansowane lingwistycznie METEOR i zorientowany na konsensus CIDEr.
+
+\subsubsection{BLEU}
+\label{sekcja:bleu}
+Metryka BLEU (Bilingual Evaluation Understudy)~\cite{Papineni2002Bleu} kwantyfikuje zgodność n-gramów między podpisem kandydującym a zbiorem podpisów referencyjnych. Wynik BLEU jest kompozycją zmodyfikowanej precyzji n-gramów oraz kary za zwięzłość.
+
+Istotnym elementem zmodyfikowanej precyzji n-gramów jest mechanizm przycinania, który zapobiega zawyżaniu wyniku poprzez nadmierne powtarzanie tych samych słów lub fraz. Mechanizm ten polega na ograniczeniu liczby wystąpień danego n-gramu w tekście kandydującym do maksymalnej liczby wystąpień tego n-gramu w dowolnym z zdań referencyjnych. Dzięki temu zmodyfikowana precyzja n-gramów uwzględnia nie tylko zgodność leksykalną podpisów, ale także ich naturalność językową i zgodność stylistyczną. Zmodyfikowaną precyzję $p_n$ dla n-gramów rzędu $n$ definiuje się formalnie jako:
+\begin{equation}
+    p_n = \frac{\sum_{g \in G_{\text{corpus}}} \text{count}_{\text{clip}}(g)}{\sum_{g \in G_{\text{corpus}}} \text{count}(g)},
+\end{equation}
+gdzie $\text{count}_{\text{clip}}(g)$ to minimum z całkowitej liczby wystąpień n-gramu $g$ w danym podpisie kandydującym oraz maksymalnej liczby jego wystąpień w dowolnym z podpisów referencyjnych. Z kolei mianownik, $\text{count}(g)$, to suma wszystkich wystąpień każdego n-gramu $g$ w podpisach kandydujących, co odpowiada ich łącznej liczbie w całym korpusie.
+
+Drugi komponent, kara za zwięzłość (Brevity Penalty, (BP), przeciwdziała generowaniu zdań nadmiernie krótkich, które mogłyby uzyskać wysoką precyzję, ale byłyby informacyjnie ubogie. Definiuje ją wzór:
+\begin{equation}
+\text{BP} =
+\begin{cases}
+1 & \text{jeśli } \hat{c} > r ,\\
+e^{1 - r/c} & \text{jeśli } \hat{c} \leq r,
+\end{cases}
+\end{equation}
+gdzie $\hat{c}$ to łączna długość wszystkich zdań kandydujących, a $r$ to długość zdania referencyjnego, najbardziej podobnego pod względem liczby słów do podpisu kandydującego.
+
+Ostateczna wartość metryki BLEU to skumulowana precyzja dla n-gramów od 1 do n, z nałożoną karą za zwięzłość.  Formalnie, skumulowany wynik $BLEU-N$ wyraża się wzorem:
+\begin{equation}
+    \text{BLEU-N} = \text{BP} \cdot \exp\left(\sum_{n=1}^{n} w_n \log p_n\right),
+\end{equation}
+gdzie $w_n$ to wagi przypisane poszczególnym rzędom n-gramów. Użycie średniej geometrycznej sprawia, że niska precyzja dla dowolnego rzędu n-gramów istotnie obniża wynik końcowy, więc każda długość n-gramu jest równie ważna.
+
+\subsubsection{ROUGE}
+\label{sekcja:rouge}
+Metryka ROUGE (Recall-Oriented Understudy for Gisting Evaluation)~\cite{Lin2004Rouge} to komplementarne podejście do BLEU. Zamiast precyzji, jej podstawą jest  pomiar stopnia pokrycia słów między zdaniem kandydującym a zdaniami referencyjnymi. ROUGE sprawdza, jaka część informacji zawartej w podpisach referencyjnych została uwzględniona w podpisie kandydującym. W zadaniu automatycznego podpisywania obrazów najszersze zastosowanie znalazły warianty ROUGE-L, ROUGE-N oraz ROUGE-S.
+
+ROUGE-L opiera się na najdłuższej wspólnej sekwencji słów (Longest Common Subsequence, (LCS) pomiędzy podpisem kandydującym a podpisami referencyjnymi. Identyfikuje ona najdłuższą sekwencję słów, która występuje w tej samej kolejności w obu tekstach, przy czym słowa te nie muszą tworzyć ciągłego fragmentu. Pozwala to ocenić globalną spójność strukturalną.
+
+Wynik ROUGE-L to średnią harmoniczną precyzji $p_l$ i czułości $r_l$:
+\begin{equation}
+  r_l = \frac{l(\mathbf{c}, \mathbf{s_i})}{|\mathbf{s_i}|},
+\end{equation}
+\begin{equation}
+  p_l = \frac{l(\mathbf{c}, \mathbf{s_i})}{|\mathbf{c}|},
+\end{equation}
+gdzie $l(\mathbf{c}, \mathbf{s})$ to długość najdłuższego wspólnego podciągu między zdaniem kandydującym $\mathbf{c}$ a zdaniem referencyjnym $\mathbf{s_i}$, a $|\mathbf{c}|$ i $|\mathbf{s_i}|$ oznaczają ich długości w słowach. Obliczenia przeprowadza się osobno dla każdego z zdań referencyjnych $\mathbf{s_i}$, a następnie agreguje wyniki. 
+
+Ostateczny wynik ROUGE-L wyraża się wzorem:
+\begin{equation}
+    \text{ROUGE-L} = \frac{(1 + \beta^2) r_{l} p_{l}}{r_{l} + \beta^2 p_{l}},
+\end{equation}
+gdzie $\beta=1,2$.
+
+ROUGE-S wykorzystuje skip-bigramy, czyli pary słów występujące w tekście w tej samej kolejności, ale niekoniecznie obok siebie. Maksymalna odległość między słowami w parze jest parametrem metryki. W odróżnieniu od LCS, który identyfikuje tylko jedną, najdłuższą sekwencję, ROUGE-S zlicza wszystkie pasujące pary, co pozwala na uchwycenie zależności między słowami na dłuższych dystansach.
+
+Przykładowo, w zdaniu: "policja schwytała złoczyńcę o poranku" można wyróżnić następujące skip-bigramy (przy braku limitu odległości): "policja schwytała", "policja złoczyńcę", "policja o", "policja poranku", "schwytała złoczyńcę", "schwytała o", "schwytała poranku", "złoczyńcę o", "złoczyńcę poranku", "o poranku".
+
+Formuły na czułość $r_{skip}$ i precyzję $p_{skip}$ mają analogiczną postać do poprzednich wariantów:
+\begin{equation}
+    r_{s} = \frac{\text{SKIP}(\mathbf{c}, \mathbf{s_i})}{|\text{SKIP}(\mathbf{s_i})|},
+\end{equation}
+\begin{equation}
+    p_{s} = \frac{\text{SKIP}(\mathbf{c, s_i})}{|\text{SKIP}(\mathbf{c})|},
+\end{equation}
+gdzie $\text{SKIP}(\mathbf{c}, \mathbf{s_i})$ oznacza liczbę wspólnych skip-bigramów, a $|\text{SKIP}(\mathbf{c})|$ i $|\text{SKIP}(\mathbf{s_i})|$ to całkowita liczba skip-bigramów odpowiednio w podpisie kandydującym oraz podpisem referencyjnym $\mathbf{s_i}$. Obliczenia przeprowadza się osobno dla każdego z zdań referencyjnych $\mathbf{s_i}$, a następnie agreguje wyniki. Wynik końcowy jest również miarą f.
+
+ROUGE-W to rozwinięcie ROUGE-L, które przypisuje wyższą wagę dłuższym, nieprzerwanym sekwencjom wspólnych słów. W przeciwieństwie do standardowego LCS, które traktuje wszystkie dopasowane słowa jednakowo, ROUGE-W premiuje ciągłość dopasowań. Do identyfikacji i ważenia takich sekwencji wykorzystywane są techniki programowania dynamicznego. Dzięki temu ROUGE-W lepiej ocenia spójność i płynność gramatyczną generowanego tekstu.
+
+Podsumowując, metryki z rodziny ROUGE dostarczają kompleksowego aparatu do ewaluacji jakości generowanych podpisów. ROUGE-L ocenia globalną zgodność strukturalną, ROUGE-S mierzy zależności między słowami na dłuższych dystansach, a ROUGE-W premiuje ciągłość dopasowań. Łączne stosowanie tych wariantów pozwala na wieloaspektową ocenę generowanych treści.
+
+\subsubsection{METEOR}
+\label{sekcja:meteor}
+\input{tabele/meteor_wartosci_stalych}
+Metryka METEOR (Metric for Evaluation of Translation with Explicit Ordering)~\cite{Banerjee2005METEOR, Meteor2008Agarwal} została opracowana, aby uwzględniać znaczenie słów. Jej celem jest zapewnienie oceny, która lepiej koreluje z ludzkim osądem jakościowym, poprzez integrację podstawowej wiedzy lingwistycznej. METEOR uwzględnia nie tylko dopasowania dokładne, ale również synonimy w oparciu o bazę WordNet oraz formy podstawowe słów. Dzięki temu jest w stanie pozytywnie ocenić zdania, które są semantycznie poprawne, lecz leksykalnie odmienne od zdań referencyjnych.
+
+Ewaluacja w metryce METEOR składa się z trzech kroków. W pierwszym kroku znajdowane są jednoznaczne dopasowania n-gramów między zdaniem kandydującym a referencyjnym. Proces ten polega na utworzeniu maksymalnej możliwej liczby par słów, gdzie każde słowo ze zdania kandydującego może być połączone z co najwyżej jednym słowem ze zdania referencyjnego. Aby zapewnić najwyższą jakość dopasowania, METEOR stosuje ściśle określoną, trójetapową hierarchię. Najpierw dopasowywane są n-gramy identyczne, następnie słowa o tym samym rdzeniu (zgodnie z algorytmem Portera~\cite{Porter1980Stemmer}), a na końcu słowa będące synonimami w bazie WordNet~\cite{Miller1995Wordnet}. Taka hierarchiczna struktura zapewnia pierwszeństwo dopasowaniom dokładnym. Jeżeli istnieje wiele możliwych dopasowań o tej samej maksymalnej liczbie par, METEOR wybiera to, w którym kolejność słów w zdaniach jest najbardziej zbliżona, co minimalizuje liczbę przecięć linii łączących dopasowane n-gramy.
+
+Następnie na podstawie liczby dopasowanych słów $m$, obliczane są miary precyzji $p_m$ i czułości $r_m$ dla unigramów:
+\begin{equation}
+    p_m = \frac{m}{w_t},
+\end{equation}
+\begin{equation}
+    r_m = \frac{m}{w_r},
+\end{equation}
+gdzie $w_t$ to łączna liczba n-gramów w zdaniu kandydującym, a $w_r$ to łączna liczba n-gramów w pojedynczym zdaniu referencyjnym. Wskaźniki te są następnie łączone w średnią harmoniczną $f_{mean}$:
+\begin{equation}
+    f_{mean} = \frac{p_m \cdot r_m}{\alpha p_m + (1 - \alpha)r_m}.
+\end{equation}
+Parametry $\gamma \alpha \theta$ są optymalizowane w celu maksymalizacji korelacji metryki z ocenami ludzkimi, przy czym ich wartości są specyficzne dla danego języka~\cite{Meteor2008Agarwal}. Wartości parametrów zastosowane w oryginalnej publikacji przedstawiono w Tabeli~\ref{tab:meteor_wartosci_stalych}.
+Aby ocenić płynność i poprawność gramatyczną, METEOR wprowadza karę za fragmentację, obliczaną na podstawie liczby zbitek – ciągłych i uporządkowanych sekwencji dopasowanych słów. Im więcej zbitek, tym bardziej fragmentaryczna jest struktura zdania. Karę $pen$ definiuje wzór:
+\begin{equation}
+    pen = \gamma \left(\frac{z}{m}\right)^{\theta},
+\end{equation}
+gdzie $z$ to liczba zbitek. Ostateczny wynik METEOR jest iloczynem miary $f_{mean}$ i współczynnika kary: 
+\begin{equation}
+    METEOR = (1 - pen) f_{mean}.
+\end{equation} 
+Finalnie dla każdego ze zdań referencyjnych obliczana jest metryka METEOR, a jako końcową ocenę przyjmuje się najwyższą uzyskaną wartość.
+
+Główną zaletą metryki METEOR jest jej wyższa korelacja z oceną ludzką w porównaniu do BLEU i ROUGE, dzięki elastycznemu mechanizmowi dopasowania słów. Ograniczeniem pozostaje jednak fakt, że wszystkie dopasowane słowa – niezależnie od ich wartości informacyjnej – wnoszą jednakowy wkład do wyniku końcowego. Metryka nie rozróżnia słów z informacjami o obrazie, jak rzeczowniki, czasowniki od słów funkcyjnych. Tę lukę adresuje metryka CIDEr (por. Sekcja~\ref{sekcja:cider}), która wprowadza ważenie oparte na częstotliwości występowania n-gramów w całym korpusie referencyjnym.
+
+\subsubsection{CIDEr}
+\label{sekcja:cider}
+Metryka CIDEr (Consensus-based Image Description Evaluation)~\cite{Vedantam2015Cider} jest standardem w ilościowej ocenie jakości podpisów do obrazów generowanych automatycznie. U jej podstaw leży założenie, że jakość podpisu automatycznego powinna być mierzona stopniem jego zgodności z podpisami stworzonymi przez ludzi. Metryka CIDEr kwantyfikuje ten konsensus poprzez analizę statystyczną n-gramów, przypisując wyższą wagę tym, które są częste i spójne w podpisach referencyjnych.
+
+W metryce CIDEr zarówno podpis kandydujący, jak i podpisy referencyjne są reprezentowane wektorowo przy użyciu wag TF-IDF dla n-gramów $n=1..4$, gdzie składowe tego wektora odzwierciedlają ważność poszczególnych n-gramów.
+
+Proces obliczeniowy dla pojedynczego podpisu kandydującego $c$ i zbioru $m$ podpisów kandydujących $S=\{\mathbf{s_{1}, s_{2}}, ..., \mathbf{s_{m}}\}$ jest następujący. W pierwszym etapie wszystkie podpisy poddawane są tokenizacji i ekstrakcji n-gramów (typowo dla $n \in \{1, 2, 3, 4\}$). Dla każdego n-gramu $\omega_k$ z globalnego słownika $\Omega$ obliczana jest waga TF-IDF. 
+
+Podobieństwo między podpisem kandydującym $c$ a zbiorem $m$ podpisów referencyjnych $S=\{s_1, \dots, s_m\}$ jest mierzone za pomocą średniego podobieństwa kosinusowego ich wektorowych reprezentacji TF-IDF. W tym celu wszystkie podpisy poddawane są tokenizacji i ekstrakcji n-gramów (typowo dla $n \in \{1, 2, 3, 4\}$). Dla każdego n-gramu $\omega_k$ z globalnego słownika $\Omega$ obliczana jest waga TF-ID. W efekcie podpis kandydujący $c$ oraz podpisy referencyjne są reprezentowane wektorowo, odpowiednio $\mathbf{g}^n(c)$ i $\mathbf{g}^n(s_j)$, zgodnie z metoda opisana w Sekcji~\ref{sekcja:tf-idf}. Miara ta jest niewrażliwa na długość porównywanych podpisów. Ocena $\mathrm{CIDEr}_n$ dla n-gramów o długości $n$ jest obliczana jako:
+\begin{equation}
+\mathrm{CIDEr}_n(c, S) = \frac{1}{m} \sum_{j=1}^{m} \frac{\mathbf{g}^n(c) \cdot \mathbf{g}^n(s_j)}{\|\mathbf{g}^n(c)\| \cdot \|\mathbf{g}^n(s_j)\|},
+\end{equation}
+$\cdot$ oznacza iloczyn skalarny, a $\| \cdot \|$ normę euklidesową wektora.
+
+Finalna ocena CIDEr jest średnią arytmetyczną wyników $\mathrm{CIDEr}_n$ uzyskanych dla różnych długości n-gramów:
+\begin{equation}
+    \mathrm{CIDEr}(c, S) = \sum_{n=1}^{N} w_n \mathrm{CIDEr}_n(c, S), \quad \text{gdzie } w_n = 1/N.
+\end{equation}
+Metryka CIDEr wykazuje wysoką korelację z ocenami ludzkimi, przewyższając pod tym względem klasyczne metryki, takie jak BLEU czy METEOR. Jej główną zaletą jest zdolność do premiowania n-gramów o wysokiej wartości informacyjnej, co stanowi efektywne przybliżenie ludzkiej oceny trafności semantycznej. 
+
+Mimo to, CIDEr posiada istotne ograniczenia. Jako metryka oparta na zgodności leksykalnej jest wrażliwa na rzadkie słowa kluczowe, które definiują sens sceny wizualnej. Nie uwzględnia synonimów ani parafraz oraz nie ocenia poprawności gramatycznej oraz spójności logicznej generowanego zdania. Mimo tych niedoskonałości pozostaje jednym z najczęściej stosowanych narzędzi ewaluacyjnych w zadaniach automatycznego podpisywania obrazów.
+
+\subsection{Metryki oparte na reprezentacji semantycznej}
+Inherentnym ograniczeniem metryk opartych na n-gramach jest ich niezdolność do ewaluacji poprawności semantycznej generowanego podpisu. Metryki te kwantyfikują wyłącznie zgodność leksykalną, ignorując fakt, że ten sam koncept może być wyrażony za pomocą różnych struktur syntaktycznych i leksykalnych. W odpowiedzi na to ograniczenie opracowano metryki oparte na reprezentacji semantycznej, których celem jest porównanie logicznej treści podpisu kandydującego z treścią podpisów referencyjnych. Paradygmat ten jest realizowany między innymi przez metryki SPICE oraz WMD.
+
+\subsubsection{SPICE}
+\label{sekcja:spice}
+Metryka SPICE (Semantic Propositional Image Captioning Evaluation)~\cite{Anderson2016Spice} odchodzi od analizy podpisów na podstawie zgodności leksykalnej i koncentruje się wyłącznie na ocenie poprawności semantycznej. W odróżnieniu od metryk opartych na analizie n-gramów, SPICE dekomponuje zdania na reprezentacje w postaci grafów scen, które modelują obiekty, ich atrybuty oraz wzajemne relacje. Dzięki temu oceniana jest merytoryczna zawartość podpisu, celowo abstrahując od jego płynności, stylu czy poprawności gramatycznej. Ocena dotyczy zatem zgodności logicznej treści, a nie statystycznego współwystępowania słów.
+\input{wykresy/spice/spice_graf_sceny}
+\input{wykresy/spice/spice_drzewo_zaleznosci}
+
+Transformacja zdania w graf sceny rozpoczyna się od analizy składniowej za pomocą wstępnie wytrenowanego analizatora składniowego~\cite{Klein2003Accurate}, który identyfikuje zależności gramatyczne między słowami w podpisie. Wynikiem tego etapu jest drzewo zależności przedstawione na Rysunku~\ref{fig:spice_drzewo}, w którym węzły reprezentują poszczególne słowa, a skierowane krawędzie wskazują na ich wzajemne powiązania gramatyczne, zidentyfikowane zgodnie ze standardem Universal Dependencies~\cite{Arneffe2014Universal}.
+
+Następnie wygenerowane drzewo zależności jest konwertowane na graf scen za pomocą zbioru ręcznie zdefiniowanych reguł lingwistycznych~\cite{Schuster2015Generating}. Przykładowo dla drzewa zależności przedstawionego na Rysunku~\ref{fig:spice_drzewo}, zbudowanego dla Obrazu~\ref{fig:spice_obraz_zrodlowy} reguła mapująca parę przymiotnik-rzeczownik transformuje zależność składniową $young\xleftarrow{amod}girl$ na obiekt (węzeł) $girl$ z atrybutem $young$, co zilustrowano na Rysunku~\ref{fig:spice_graf_z_drzewa}.
+
+Formalnie, graf sceny dla podpisu kandydującego $c$ jest definiowany jako trójka $\mathbf{g(c) = \langle o(c), e(c), k(c) \rangle}$, gdzie $\mathbf{o(c)}$ to zbiór klas obiektów w podpisie $c$, $\mathbf{e(c)}$ to zbiór relacji (krawędzi) między obiektami, a $\mathbf{k(c)}$ to zbiór atrybutów przypisanych do obiektów.  W celu dokonania porównania, graf jest konwertowany na zbiór krotek semantycznych: $\mathbf{t(g(c)) = o(c) \cup e(c) \cup k(c)}$
+
+Zgodność między zbiorem krotek podpisu kandydującego $\mathbf{t(g(c))}$ a zbiorem krotek pochodzących ze wszystkich podpisów referencyjnych $\mathbf{t(g(s))}$ jest kwantyfikowana za pomocą miar precyzji $p(c, s)$ i czułości (pokrycia) $r(c, s)$:
+\begin{equation}
+ p(c, s) = \frac{|\mathbf{t(g(c))} \cap_{\text{sem}} \mathbf{t(g(s))|}}{\mathbf{|t(g(c))|}},
+\end{equation}
+\begin{equation}
+ r(c, S) = \frac{\mathbf{|t(g(c)) }\cap_{\text{sem}}\mathbf{ t(g(s))|}}{\mathbf{|t(g(s))|}},
+\end{equation}
+gdzie operator $|\dots \cap_{\text{sem}} \dots|$ to funkcja, która zlicza wspólne krotki semantyczne. Krotki są uznawane za zgodne, jeżeli ich składowe lematy są identyczne lub stanowią synonimy w tezaurusie WordNet, analogicznie do podejścia zastosowanego w metryce METEOR.
+
+Ostateczny wynik metryki SPICE jest miarą $f_1$, czyli średnią harmoniczną precyzji i czułości:
+\begin{equation}
+ \text{SPICE}(c, s) = f_1(c, s) = \frac{2 \cdot p(c, s) r(c, s)}{p(c, s) + r(c, s)}.
+\end{equation}
+
+Główną zaletą metryki SPICE jest jej zdolność do szczegółowej oceny poprawności semantycznej, w tym zliczania obiektów i rozpoznawania ich atrybutów i weryfikacji relacji przestrzennych. Jednakże SPICE całkowicie pomija lingwistyczną jakość generowanego tekstu, w tym płynność, styl czy poprawność gramatyczną, co istotnie ogranicza jej potencjał w pomiarze jakości podpisów maszynowych.
+
+
+\subsubsection{WMD}
+\label{sekcja:wmd}
+Metryka WMD (Word Mover's Distance)~\cite{Kusner2015FromWE} kwantyfikuje podobieństwo zdań opierając się na koncepcji problemu transportowego (transportation problem) w przestrzeni osadzeń słów. Umożliwia ona pomiar odległości semantycznej między podpisami, nawet w przypadku braku wspólnych jednostek leksykalnych. WMD traktuje podpis jako ważoną dystrybucję osadzeń słów i oblicza minimalny koszt transformacji dystrybucji podpisu kandydującego w dystrybucję zagregowanych podpisów referencyjnych.
+
+Formalnie, każdy podpis jest reprezentowany jako znormalizowany wektor w modelu \gls{bow}. Dla ustalonego słownika o rozmiarze $|g|$, podpis kandydujący $c$ jest wektorem $\mathbf{c}$, którego $i$-ta składowa, $c_i$, oznacza znormalizowaną częstotliwość $i$-tego słowa w dokumencie. Zbiór podpisów referencyjnych $S$ jest agregowany do uśrednionej reprezentacji BoW, tworząc w ten sposób syntetyczny wektor $\mathbf{s}$, którego składowa $s_j$ oznacza znormalizowaną, uśrednioną częstość występowania słowa w zestawie podpisów referencyjnych.
+
+Koszt jednostkowy transformacji słowa $i$ w słowo $j$, oznaczony jako $p(i, j)$, jest zdefiniowany jako odległość euklidesowa między ich wektorami osadzeń $\mathbf{c}_i, \mathbf{s}_j$:
+\begin{equation}
+ p(i, j) = \|\mathbf{c}_i - \mathbf{s}_j\|_2.
+\end{equation}
+
+Celem WMD jest znalezienie optymalnej macierzy przepływu $\mathbf{T}$, gdzie element $T_{i,j} \geq 0$ określa, jaka część "masy" słowa $i$ z podpisu źródłowego $\mathbf{c}$ musi zostać przetransportowana, aby stać się słowem $j$ w podpisach referencyjnych $\mathbf{s}$. Macierz $\mathbf{T}$ musi spełniać warunki brzegowe, zapewniające, że cała masa ze źródła zostanie rozdysponowana, a całe zapotrzebowanie w miejscu docelowym zostanie zaspokojone:
+\begin{gather}
+ \sum_{j=1}^{|g|} T_{i,j} = c_{i} \quad \forall i \in \{1, \dots , |g|\} ,\\
+ \sum_{i=1}^{|g|} T_{i,j} = s_{j} \quad \forall j \in \{1, \dots, |g|\}.
+\end{gather}
+
+Odległość WMD między podpisem kandydującym $\mathbf{c}$ i zbiorem podpisów referencyjnych $\mathbf{s}$ jest zdefiniowana jako minimalny całkowity koszt transportu, uzyskany poprzez rozwiązanie następującego problemu programowania liniowego:
+\begin{equation}
+ \text{WMD}(\mathbf{c,s}) = \min_{\mathbf{T} \geq 0} \sum_{i,j=1}^{|g|} T_{i,j}p(i,j).
+\end{equation}
+
+Dokładne rozwiązanie tego problemu charakteryzuje się wysoką złożonością obliczeniową, rzędu $O(n^3 \log n)$, gdzie $n$ jest liczbą unikalnych słów w analizowanych podpisach. Stanowi to istotną barierę w zastosowaniach na dużą skalę, co doprowadziło do opracowania metod aproksymacyjnych.
+
+Pierwszą z nich jest \gls{gls:wcd}, która upraszcza problem, obliczając odległość euklidesową między średnimi wektorami osadzeń między wektorem podpisu kandydującego $s$ a podpisami kandydującymi $\mathbf{s}$.
+
+Drugą, bardziej zaawansowaną aproksymacją jest \gls{gls:rwmd}, która polega na relaksacji jednego z warunków brzegowych problemu transportowego, co znacząco upraszcza optymalizację. Metoda ta cechuje się złożonością $O(n^2)$ i stanowi kompromis między dokładnością pełnej metryki WMD a szybkością WCD.
+
+Zaletą WMD jest jej zdolność do oceny podobieństwa semantycznego w sposób niezależny od porządku słów i zgodności leksykalnej. Wadą pozostaje jednak wysoki koszt obliczeniowy oraz wrażliwość na jakość użytych osadzeń słów.
+
+\subsection{Ocena ludzka}
+\label{sekcja:ocena_ludzka}
+Ograniczenia omówionych metryk automatycznych wymuszają stosowanie oceny ludzkiej. Jest to proces subiektywnej oceny podpisów przez ludzi, a jego znaczenie wynika z naturalnej zdolności człowieka do percepcji kontekstu, poprawności językowej oraz niuansów semantycznych. W praktyce, proces ten polega na przypisaniu podpisowi wartości na określonej skali lub na udzieleniu odpowiedzi na predefiniowane pytania.
+
+Jedną z najczęściej stosowanych metod oceny ludzkiej w kontekście automatycznego podpisywania obrazów jest skala Likerta~\cite{Robinson2014}. W kontekście oceny podpisów automatycznych respondenci proszeni są o wyrażenie swojego stopnia zgody lub niezgody z serią stwierdzeń dotyczących jakości podpisu, zaznaczając odpowiednią pozycję na skali od "zdecydowanie się nie zgadzam" do "zdecydowanie się zgadzam".  
+
+Przykładowe pytania w ankiecie wykorzystującej skalę Likerta do oceny podpisów do obrazów (skala od "zdecydowanie nie" do "zdecydowanie tak") to:  
+\begin{itemize}
+    \item Podpis dokładnie i wiernie oddaje sens obrazu.  
+    \item Podpis jest płynny i naturalny.  
+    \item Podpis jest poprawny językowo.  
+    \item Podpis jest podobny do opisu ludzkiego.  
+\end{itemize}  
+
+Istotnym kryterium oceny podpisu jest jego poprawność językowa, która odnosi się do zgodności podpisu z zasadami gramatyki, składni i leksyki danego języka. Dla języka polskiego systematykę błędów wprowadza topologia Markowskiego~\cite{Andrzej2005kultura}, która wyróżnia błędy:
+
+\begin{tabular}{llll}
+\textbullet{} gramatyczne & \textbullet{} leksykalne & \textbullet{} słowotwórcze & \textbullet{} ortograficzne \\
+\textbullet{} fleksyjne & \textbullet{} słownikowe (wyrazowe) & \textbullet{} fonetyczne & \textbullet{} interpunkcyjne \\
+\textbullet{} składniowe & \textbullet{} frazeologiczne & \textbullet{} stylistyczne & \\
+\end{tabular}
+Poprawność gramatyczna odnosi się do zgodności z zasadami morfologii i składni języka, natomiast poprawność leksykalna dotyczy właściwego doboru słów i wyrażeń. Błędy słownikowe i frazeologiczne wynikają z użycia niewłaściwych form wyrazowych lub niepoprawnych związków frazeologicznych. Poprawność stylistyczna odnosi się natomiast do zgodności z normami stylistycznymi charakterystycznymi dla danego kontekstu komunikacyjnego.  
+
+Oprócz skali Likerta w ocenie ludzkiej stosuje się również 
+porównywanie parami. W tej metodzie respondenci otrzymują podpis wygenerowany przez model sztucznej inteligencji oraz drugi wykonany przez człowiek, następnie są proszeni są o wskazanie, który z nich jest lepszy. Metoda ta pozwala na bezpośrednie porównanie jakości podpisu automatycznego z podpisem referencyjnym. 
+
+Metoda edycji tekstu polega na zleceniu respondentom redakcji wygenerowanego podpisu w celu poprawy jego jakości. Liczba wprowadzonych modyfikacji staje się wówczas miarą jakości, im mniej zmian, tym wyższa jakość pierwotnego tekstu.
+
+Stosowana jest również ocena holistyczna, gdzie respondenci przyznają podpisowi ogólną notę w skali 1-5. Umożliwia to syntetyczne ujęcie jakości jednak cechuje się wysoką subiektywnością i brakiem precyzyjnych kryteriów.
+
+Ocena ludzka posiada jednak istotne ograniczenia. Jest subiektywna w osądach, zależnie od doświadczeń językowych i percepcyjnych respondenta. Prowadzi to do potencjalnie niskiej spójności między ocenami. Ponadto proces ten jest czasochłonny i kosztowny, zwłaszcza przy konieczności zaangażowania dużej liczby respondentów w celu uzyskania istotności statystycznej.  
+
+Mimo opisanych ograniczeń ocena ludzka pozostaje złotym standardem w ewaluacji podpisów. Żadna metryka automatyczna nie jest w stanie w pełni uchwycić niuansów percepcyjnych dostępnych człowiekowi.
+
+\subsection{Typologia błędów w automatycznym podpisywania obrazów}
+\label{sekcja:typologia_bledow}
+
+Standardowe metryki ewaluacyjne, takie jak BLEU i CIDEr, posiadają ograniczenia w identyfikacji specyficznych niedoskonałości generowanych podpisów. Motywuje to potrzebę szczegółowej analizy jakościowej. W ramach niniejszej dysertacji opracowano autorską, hierarchiczną taksonomię błędów w automatycznym podpisywaniu obrazów. Taksonomia ta stanowi narzędzie do systematycznej, manualnej adnotacji i kategoryzacji błędów popełnianych przez modele. Wykracza poza ogólne wskaźniki podobieństwa do tekstów referencyjnych. Wyróżniono cztery główne kategorie błędów.
+
+Podstawową kategorią są \textbf{błędy faktograficzne} (\gls{gls:fidelity-errors}). Dotyczą zgodności semantycznej treści podpisu z wizualną zawartością obrazu. Weryfikują poprawność predykcji na poziomie przetwarzania obrazu. W ramach tej kategorii wyróżnia się: 
+\begin{itemize} 
+    \item \textbf{Błędna identyfikacja lub pominięcie obiektu}~\cite{Yu2022Automated, mccaffreyimage}: Model błędnie klasyfikuje istotny obiekt lub go pomija.
+    \item \textbf{Błędy relacyjne}~\cite{mccaffreyimage, Khan2025Fault}: Poprawna identyfikacja obiektów przy jednoczesnym błędnym opisie ich wzajemnych interakcji, akcji lub lokalizacji i zależności czasowych.
+    \item \textbf{Błędy atrybutów}~\cite{mccaffreyimage}: Przypisanie nieprawidłowych cech deskryptywnych, takich jak  kolor, stan,  poprawnie zidentyfikowanemu obiektowi.
+    \item \textbf{Błędy liczebności}~\cite{Yu2022Automated}: Nieprawidłowe określenie krotności wystąpienia obiektów danego typu na obrazie.
+    \item \textbf{Halucynacja obiektu}~\cite{Lee2025Toward, Rohrbach2018ObjectHI}: Błąd krytyczny, który polega na opisie obiektu nieobecnego na obrazie, co bezpośrednio wpływa na wiarygodność modelu. 
+\end{itemize}
+
+Druga kategoria obejmuje \textbf{błędy spójności semantycznej} (\gls{gls:relevance-errors}). Odnoszą się do tego czy podpis trafnie oddaje główny sens i kontekst sceny~\cite{kim2025expert}. Błędy te nie wynikają z błędów faktograficznych, lecz z nieadekwatnego doboru treści lub jej interpretacji. Wyróżnia się tu:
+\begin{itemize} 
+    \item \textbf{Brak istotności/Skupienie na detalu}~\cite{sarto2025image}: Podpis koncentruje się na nieistotnych szczegółach tła i jednocześnie pomija główny temat, wydarzenie lub najbardziej znaczące elementy sceny.
+    \item \textbf{Ogólnikowość/Nadmierna generalizacja}~\cite{Sarhan2023Understanding, kasai2021transparent}: Generowanie trywialnych, zbyt ogólnych podpisów, które nie oddają unikalnej specyfiki przedstawionej sceny. 
+    \item \textbf{Błędna interpretacja kontekstu sceny}~\cite{Zhao2024Semantic, Khan2025Fault}: Model poprawnie identyfikuje poszczególne elementy sceny, ale nieprawidłowo integruje je w spójną całość semantyczną. W efekcie model błędnie wnioskuje o sytuacji, nastroju lub znaczeniu relacji. 
+\end{itemize}
+
+
+Trzecia kategoria to \textbf{błędy płynności językowej} (\gls{gls:fluency-errors}). Dotyczą lingwistycznej i stylistycznej jakości podpisów oraz ich zgodności z normami danego języka~\cite{Khan2025Fault}. Obejmują one:
+\begin{itemize} 
+    \item \textbf{Błędy gramatyczne i składniowe}: Naruszenia reguł morfologicznych, w tym fleksyjnych, składniowych, ortograficznych lub interpunkcyjnych (zgodnie z typologią omówioną w sekcji~\ref{sekcja:ocena_ludzka}).
+    \item \textbf{Problemy z płynnością i czytelnością}~\cite{kim2025expert}: Dotyczą podpisów poprawnych gramatycznie, lecz nienaturalnych, niezręcznych stylistycznie, trudnych w odbiorze lub niespójnych logicznie.
+    \item \textbf{Brak zwięzłości / Redundancja}~\cite{kasai2021transparent}: Nadmierne rozwlekanie podpisu, zbędne powtarzanie informacji lub stosowanie \gls{gls:pleonazm}. 
+\end{itemize}
+
+Czwarta kategoria to \textbf{uprzedzenia i szkody społeczne} (\gls{gls:bias_and_social_harms}). Koncentruje się ona na etycznych i społecznych implikacjach podpisów. Analizuje potencjalne powielanie i wzmacnianie stereotypów obecnych w danych treningowych. Wyróżnia się tu:
+\begin{itemize} 
+    \item \textbf{Wymazywanie tożsamości}~\cite{Sarhan2023Understanding, kasai2021transparent}: Tendencja do generowania nadmiernie neutralnych podpisów, które systematycznie ignorują istotne cechy tożsamości osób, takie jak płeć, rasa czy niepełnosprawność.
+    \item \textbf{Stereotypizacja i uprzedzenia}~\cite{vazquez2024taxonomy}: Generowanie podpisów przypisujących osobom lub grupom cechy, role lub zachowania oparte na utrwalonych, szkodliwych stereotypach związanych z ich tożsamością.
+\end{itemize}
+
+Podsumowując, zaproponowana typologia systematyzuje błędy w następujący sposób:
+
+\textbf{Błędy Faktograficzne}
+\begin{enumerate}
+    \item Błędna identyfikacja lub pominięcie obiektu
+    \item Błędy relacyjne
+    \item Błędy atrybutów obiektów
+    \item Błędy liczebności 
+    \item Halucynacja obiektu 
+\end{enumerate}
+\textbf{Błędy Spójności Semantycznej}
+\begin{enumerate}
+    \item Brak istotności / Skupienie na detalu 
+    \item Ogólnikowość / Nadmierna generalizacja
+    \item Błędna interpretacja kontekstu sceny
+    \item Ogólnikowość / Nadmierna generalizacja 
+\end{enumerate}
+\textbf{Błędy Płynności Językowej}
+\begin{enumerate}
+    \item Błędy gramatyczne i składniowe
+    \item Problemy z płynnością i czytelnością
+    \item Brak zwięzłości / Redundancja 
+\end{enumerate}
+\textbf{Uprzedzenia i Szkody Społeczne}
+\begin{enumerate}
+    \item Wymazywanie tożsamości
+    \item Stereotypizacja i uprzedzenia
+\end{enumerate}
+
+\subsection{Porównanie metryk}
+\label{sekcja:porownanie_metryk}
+Analiza porównawcza metryk automatycznych ujawnia specyfikę każdej z nich oraz kompromisy w podejściu do kwantyfikacji jakości podpisów automatycznych. Metryki takie jak BLEU (por. Sekcja~\ref{sekcja:bleu}) i ROUGE (por. Sekcja~\ref{sekcja:rouge}) pozostają standardem ze względu na prostotę implementacji i wydajność obliczeniową. Jednakże ich zdolność do oceny rzeczywistej jakości jest ograniczona, gdyż mierzą zgodności jedynie na poziomie pojedynczych słów, ignorując bogactwo relacji semantycznych, takich jak synonimia czy parafraza. 
+
+METEOR (por. Sekcja~\ref{sekcja:meteor}) stanowi krok naprzód, integrując podstawową wiedzę lingwistyczną, co skutkuje wyższą korelacją z osądem ludzkim. Jego skuteczność jest jednak uzależniona od zewnętrznych zasobów językowych.
+
+Zmianę paradygmatu przyniosły dopiero metryki opracowane z myślą o specyfice zadania automatycznego podpisywania obrazów. CIDEr (por. Sekcja~\ref{sekcja:cider}) poprzez mechanizm ważenia TF-IDF nagradza podpisy, które są zarówno trafne, jak i deskryptywne. 
+
+Z kolei SPICE (por. Sekcja~\ref{sekcja:spice}) i WMD (por. Sekcja~\ref{sekcja:wmd}) oceniają podpisy zgodnie z ich semantyką. SPICE weryfikuje poprawność merytoryczną, porównując obiekty, atrybuty i relacje, kosztem całkowitego pominięcia jakości lingwistycznej. WMD mierzy odległość w przestrzeni osadzeń, elastycznie kwantyfikując podobieństwo znaczeniowe; jednak jest to obarczone wysokim kosztem obliczeniowym oraz strukturalną niewrażliwością na składnię.
+
+\input{tabele/metryki_rezultaty_na_zdaniu}
+W Tabeli~\ref{tab:metryki_rezultaty_na_zdaniu} przedstawiono analizę wrażliwości wybranych metryk na celowe modyfikacje zdania kandydującego. W celach porównawczych w Tabeli~\ref{tab:metryki_rezultaty_na_zdaniu} znajduje się także oryginalne zdanie, wraz z pięcioma podpisami referencyjnymi.
+
+Ewidentnie zastąpienie słów ich synonimami skutkuje obniżeniem wartości wszystkich analizowanych metryk, przy czym spadek ten jest szczególnie znaczący w przypadku SPICE oraz CIDEr. W rozpatrywanym przykładzie ograniczenie metryki SPICE wynika z nieprawidłowego mapowania synonimów, natomiast niższa ocena metryki CIDEr jest konsekwencją zastosowanego mechanizmu ważenia TF-IDF.
+
+Ponadto wprowadzenie do zdania wyrazów redundantnych prowadzi do spadku wartości metryk BLEU-1, BLEU-2, ROUGE-L oraz CIDEr w stosunku do zdania oryginalnego. Należy jednak zaznaczyć, że metryka WMD pozostaje niewrażliwa na zmianę szyku wyrazów.
+
+Powyższa analiza empiryczna potwierdza, że nie istnieje pojedyncza, uniwersalna metryka automatyczna, zdolna w pełni uchwycić wielowymiarowość jakości podpisów automatycznych. Każda z miar posiada unikalne zalety i systematyczne słabości. W konsekwencji rzetelna ewaluacja ilościowa wymaga stosowania zestawu komplementarnych metryk, pozwalających na ocenę różnych aspektów, takich jak zgodność leksykalna i wierność semantyczna.
+
+Należy jednak podkreślić, że nawet najbardziej zaawansowane miary automatyczne pozostają jedynie aproksymacją kryterium ostatecznego. Jak wskazano w Sekcji~\ref{sekcja:ocena_ludzka} to ocena ludzka jako jedyna jest zdolna do holistycznej oceny spójności, poprawności gramatycznej, adekwatności stylistycznej i ogólnej jakości komunikacyjnej generowanego podpisu.
+
+
+\subsection{Wyzwania w generowaniu i ewaluacji podpisów w języku polskim}
+Dotychczasowe postępy w dziedzinie automatycznego podpisywania obrazów dotyczą w przeważającej mierze języka angielskiego. Zastosowanie tych modeli w językach o złożonej morfologii i relatywnie swobodnym szyku zdania napotyka na trudności generacyjne i ewaluacyjne. Do tej grupy należy język polski.
+
+Jego wysoka złożoność fleksyjna obejmująca deklinację rzeczowników, przymiotników, zaimków oraz koniugację czasowników, stawia przed modelami językowymi znacznie wyższe wymagania niż w przypadku analitycznego języka angielskiego. Konieczność zachowania wieloaspektowej zgodności gramatycznej (np. podmiotu z orzeczeniem pod względem osoby, liczby i rodzaju) w obrębie całego zdania wymaga od modelu zdolności wykraczających poza proste modelowanie zależności statystycznych.
+
+Jak wskazuje analiza jakości tekstów generowanych maszynowo w języku polskim, przeprowadzona w~\cite{Mazur2024Poprawnosc} głównym problemem pozostaje poprawność składniowa i fleksyjna. Generowane konstrukcje są często niekompletne, a ich struktura odbiega od naturalnych wzorców językowych. Modele wykazują trudności w przestrzeganiu podstawowych zasad gramatycznych. Efektem tego są błędy w odmianie wyrazów oraz niepoprawne konstrukcje składniowe. Te niedoskonałości wynikają w dużej mierze z charakteru danych treningowych. Zbiory te są często pozyskiwane automatycznie, gdzie ważniejsza jest ich ilość, a nie bezwzględna poprawność językowa, co prowadzi do utrwalania błędnych wzorców przez model.
+
+Wymienione wyzwania w generowaniu  tekstu implikują istotne ograniczenia w procesie ewaluacji, potęgując słabości metryk automatycznych omówionych w Sekcji~\ref{sekcja:porownanie_metryk}. Metryki oparte na n-gramach są w tym kontekście szczególnie zawodne. Ich wrażliwość na ścisłą zgodność leksykalną sprawia, że nisko oceniają zdania semantycznie poprawne, lecz używające synonimów lub innych form fleksyjnych niż te obecne w referencjach. Jednocześnie metryki te mogą przypisywać wysokie wyniki zdaniom zawierającym rażące błędy gramatyczne, o ile współdzielą one wystarczającą liczbę n-gramów ze zdaniem referencyjnym.
+
+W konsekwencji rzetelna ocena jakości podpisów w języku polskim wymaga metryk zdolnych do uwzględnienia bogactwa morfologicznego i elastyczności składniowej. Przy ich braku pozostaje subiektywna i kosztowna ocena ludzka.

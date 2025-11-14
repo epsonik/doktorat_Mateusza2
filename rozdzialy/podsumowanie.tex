@@ -1,0 +1,46 @@
+\chapter{Podsumowanie}
+Automatyczne generowanie podpisów do obrazów to interdyscyplinarne wyzwanie badawcze na styku widzenia komputerowego i przetwarzania języka naturalnego. Jego celem jest synteza trafnego oraz lingwistycznie poprawnego opisu sceny wizualnej. Dynamiczny rozwój metod uczenia głębokiego umożliwił znaczący postęp w tej dziedzinie. Wzrost skuteczności modeli wiąże się jednak z rosnącą złożonością obliczeniową. Stanowi to barierę dla ich praktycznego wdrożenia.
+
+Niniejsza rozprawa doktorska adresuje ten problem. Koncentruje się na optymalizacji ugruntowanych architektur neuronowych. Celem rozprawy było opracowanie i weryfikacja metod doskonalenia systemów generowania podpisów. Metody te ukierunkowano na maksymalizację jakości podpisów przy jednoczesnej optymalizacji wydajności obliczeniowej. Postawiono hipotezę badawczą. Zakłada ona, że poprawę skuteczności można osiągnąć poprzez optymalizację komponentów klasycznych architektur koder-dekoder oraz modeli z mechanizmem uwagi, bez wprowadzania nowych topologii.
+
+\section{Realizacja celów i wkład pracy}
+W ramach rozprawy zrealizowano postawione cele badawcze. Dokonano systematycznej analizy teoretycznej oraz wieloetapowych badań empirycznych. Część teoretyczna obejmowała przegląd ewolucji metod oraz analizę komponentów systemów, m.in. sieci szkieletowych, dekoderów rekurencyjnych i modeli osadzeń słów. Omówiono także zbiory danych i metryki ewaluacyjne. Część eksperymentalna została zrealizowana w dwóch głównych obszarach badawczych. Wszystkie eksperymenty przeprowadzono na standardowym zbiorze danych Microsoft COCO. Ewaluację oparto na zestawie metryk automatycznych (BLEU, CIDEr, SPICE).
+
+Praca wnosi wkład w rozwój dziedziny poprzez systematyczną analizę i optymalizację istniejących architektur. Dostarcza praktycznych wskazówek dotyczących doboru komponentów i strategii treningowych. Główne elementy wkładu pracy są następujące:
+
+\begin{enumerate}
+    \item \textbf{Systematyczna optymalizacja architektury koder-dekoder.} Przeprowadzono badania porównawcze dwóch metod integracji cech multimodalnych: fuzji oraz wstrzykiwania wstępnego. Dokonano empirycznej ewaluacji wpływu kodera wizualnego, modeli osadzeń słów GloVe i FastText, strategii fuzji przez konkatenację i dodawanie oraz typów dekodera rekurencyjnego LSTM i GRU. Zidentyfikowano optymalne konfiguracje dla obu architektur i wykazano wyższą skuteczność architektury fuzji.
+    \item \textbf{Analiza wpływu kodera wizualnego.} Porównano wydajność wstępnie wytrenowanych sieci szkieletowych, w tym VGG, Resnet, Densenet, Xception oraz Regnet. Wykazano, że wybór ekstraktora cech wizualnych w koderze ma decydujący wpływ na jakość i szczegółowość semantyczną generowanych podpisów.
+    \item \textbf{Analiza interakcji w modelach z mechanizmem uwagi.} Zbadano synergię pomiędzy siedmioma architekturami sieci szkieletowych a czterema wariantami mechanizmu uwagi: miękką, przestrzenną, adaptacyjną oraz własną. Zidentyfikowano antagonistyczne i synergiczne interakcje wpływające na skuteczność modeli.
+    \item \textbf{Optymalizacja procesu inferencji.}Przeanalizowano wpływ strategii dekodowania sekwencji wyjściowej poprzez przeszukiwanie wiązkowe i określono optymalną wartość szerokości wiązki $k=3$ jako kompromis między jakością predykcji a kosztem obliczeniowym.
+\end{enumerate}
+
+Wyniki badań przeprowadzonych w ramach rozprawy zostały opisane i opublikowane w pięciu artykułach naukowych~\cite{Iwanowski2021Fuzzy,Bartosiewicz2021Generating,Bartosiewicz2024Improving,Bartosiewicz2023Combining,Bartosiewicz2024Optimal}. Szósty artykuł został zgłoszony do publikacji. Artykuły~\cite{Bartosiewicz2023Combining,Bartosiewicz2024Optimal} rozwijają badania z Rozdziału~\ref{rozdzial:badania_podstawowej_architektury_koder_dekoder}. Badania opisane w Rozdziale~\ref{rozdzial:badania_mechanizmu_uwagi} stanowią podstawę zgłoszonego artykułu.
+
+\section{Weryfikacja hipotez i kluczowe wnioski}
+Przeprowadzone badania pozytywnie zweryfikowały główną hipotezę badawczą oraz hipotezy szczegółowe. Kluczowe wnioski badań empirycznych to:
+\begin{enumerate} 
+    \item \textbf{Znaczenie architektury kodera wizualnego.} Potwierdzono, że nowoczesne sieci szkieletowe, takie jak Xception, Densenet czy Regnet, dostarczają reprezentacji wizualnej o wyższej jakości semantycznej niż starsze modele, np. VGG. Przekłada się to bezpośrednio na wyższą trafność i szczegółowość podpisów, mierzoną metrykami CIDEr i SPICE. Wykazano, że efektywność ekstrakcji cech zależy od topologii sieci, a nie wyłącznie od liczby jej parametrów.
+    
+    \item \textbf{Efektywność strategii fuzji i struktury dekodera.} Badania nad architekturą fuzji wykazały jednoznaczną przewagę konkatenacji nad dodawaniem wektorów cech jako metody integracji modalności. W zakresie dekoderów rekurencyjnych wykazano, że sieć GRU osiąga wyniki porównywalne z LSTM. Mimo mniejszej złożoności oferuje wyższą efektywność obliczeniową w kontekście generowania krótkich sekwencji.
+    
+    \item \textbf{Synergia komponentów systemu.} Potwierdzono istnienie złożonych interakcji, zarówno synergicznych, jak i antagonistycznych, między komponentami architektury koder-dekoder. Wykazano, że optymalna wydajność systemu nie jest prostą sumą wydajności jego odizolowanych komponentów. Identyfikacja wzajemnie kompatybilnych kombinacji, typu sieć szkieletowa–mechanizm uwagi, okazała się decydująca dla maksymalizacji skuteczności. 
+\end{enumerate}
+
+Wyniki badań potwierdzają, że empiryczny dobór i dostrojenie komponentów w ugruntowanych architekturach stanowi efektywną strategię doskonalenia systemów automatycznego generowania podpisów do obrazów. Weryfikuje to pozytywnie główną hipotezę badawczą.
+
+\section{Wnioski końcowe i kierunki dalszych badań}
+Niniejsza rozprawa wnosi wkład w rozwój metod automatycznego generowania podpisów do obrazów. Demonstruje potencjał optymalizacji istniejących architektur neuronowych oraz dostarcza empirycznych wskazówek dotyczących ich konfiguracji. Praca ma również znaczenie praktyczne. Wpływa na rozwój technologii asystujących dla osób z niepełnosprawnością wzroku, semantycznego wyszukiwania w archiwach wizualnych czy projektowania interfejsów człowiek-komputer. Analiza architektur multimodalnych dostarcza ponadto wskazówek dla innych obszarów sztucznej inteligencji, takich jak analiza wideo, diagnostyka medyczna czy robotyka.
+
+Pomimo osiągniętych postępów, analiza jakościowa ujawniła fundamentalne ograniczenia badanych modeli. Zalicza się do nich podatność na tendencyjność wynikającą z dystrybucji danych treningowych. Prowadzi to do generowania halucynacji obiektów i podpisów nieadekwatnych semantycznie. Istotnym wyzwaniem pozostaje ograniczona zdolność do generalizacji na danych spoza dystrybucji (OOD). Problemem jest także interpretacja scen zawierających rzadkie obiekty lub nietypowe konteksty.
+
+Zidentyfikowane ograniczenia wyznaczają kierunki dalszych badań. Powinny się one koncentrować na:
+\begin{itemize}
+    \item Opracowaniu metod mitygacji tendencyjności językowej i redukcji halucynacji, między innymi poprzez integrację zewnętrznych baz wiedzy.
+    \item Zwiększeniu zdolności generalizacyjnych modeli poprzez wykorzystanie wielkoskalowych zbiorów danych oraz technik uczenia transferowego.
+    \item Adaptacji opracowanych metod do języków o złożonej morfologii, takich jak język polski. Wymaga to rozwiązania problemów związanych z poprawnością fleksyjną i składniową oraz opracowania adekwatnych metod ewaluacji.
+\end{itemize}
+
+Na podstawie przeprowadzonych badań można przewidywać, że przyszły rozwój w tej dziedzinie będzie zmierzał w kierunku przezwyciężenia zidentyfikowanych ograniczeń. Zamiast tworzyć generyczne podpisy, modele nowej generacji będą musiały wykazywać się głębszym, przyczynowo-skutkowym rozumieniem sceny. Będzie to wymagało nie tylko identyfikacji obiektów, ale również modelowania ich wzajemnych interakcji, intencji oraz kontekstu sytuacyjnego. Można spodziewać się rozwoju modeli integrujących wiedzę zewnętrzną, wykraczającą poza zbiór treningowy. Pozwoli to tworzyć podpisy bogatsze kontekstowo i semantycznie. Myśl Ludwiga Wittgensteina, będąca inspiracją dla te pracy – "zdanie stanowi logiczny model faktu" pozostaje aktualna. Przeprowadzone eksperymenty pokazują, jak zaawansowane „językowe odpowiedniki sceny wizualnej” potrafimy tworzyć. Jednocześnie unaoczniają one wyzwania stojące na drodze do maszynowej interpretacji sceny wizualnej, która nie byłaby jedynie nadinterpretacją. Niniejsza rozprawa zamyka klamrą techniczną analizę zrodzoną z humanistycznej refleksji i stanowi kolejny krok na tej ścieżce.
+
+

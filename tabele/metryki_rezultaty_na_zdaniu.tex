@@ -1,0 +1,20 @@
+\begin{table}
+\caption{Rezultaty podstawowych metryk obliczone dla przykładowego zdania. Zestawiono metryk dla zdania zmodyfikowanego o synonimy, wyrazy redundantne, a także zdanie ze zmienioną kolejnością słów. }\label{tab:metryki_rezultaty_na_zdaniu}
+\centering
+
+\resizebox{\textwidth}{!}{%
+
+\begin{tabular}{|l|l|l|l|l|l|l|l|l|l|l|}
+\hline
+& & \textbf{B-1} & \textbf{B-2}&\textbf{B-3}& \textbf{B-4}& \textbf{M} & \textbf{R} & \textbf{C}& \textbf{S}& \textbf{W} \\ \hline
+\begin{tabular}[c]{@{}l@{}} Podpisy\\ referencyjne\end{tabular} & \begin{tabular}[c]{@{}l@{}} * A street with park cars and a mailbox on the\\ corner and lots of buildings \\ * Two traffic signals help to direct the flow of\\ traffic  \\ * It's a dark and dreary day on Main Street\\ * Traffic lights hung over an intersection\\ of streets with very little traffic \\ * Traffic lights hang over cars parked on a street \\ \end{tabular} & 1 & 1 & 1 & 1 & 1 & 1 & 2,1 & 54,50 & 1 \\ \hline
+
+Kandydat & \begin{tabular}[c]{@{}l@{}} There are two traffic lights on the intersection\\ of streets. \end{tabular}& 80,00 & 66,70 & 38,2 & 0 & 24,6 & 44,70 & 95,41 & 25,60 & 68,20 \\ \hline
+
+Synonimy & \begin{tabular}[c]{@{}l@{}} There are two traffic lights on the crossing\\ of roadways. \end{tabular}& 60,00 & 44,70 & 0 & 0 & 16,90 & 40,00 & 41,83 & 15,40 & 46,90 \\ \hline
+Redundancja & \begin{tabular}[c]{@{}l@{}} There are two traffic lights on the intersection\\ of streets at sunset. \end{tabular}& 66,70 & 55,00 & 31,20 & 0 & 24.00 & 41,7 & 80,22 & 24,4 & 59,10 \\ \hline
+Kolejność słów & \begin{tabular}[c]{@{}l@{}} On the intersection of streets, there are two\\ traffic lights. \end{tabular}& 80,00 & 66,70 & 38,20 & 0 & 24,60 & 35,80 & 91,95 & 25,60 & 62,8 \\ \hline
+\end{tabular}
+}
+
+\end{table}

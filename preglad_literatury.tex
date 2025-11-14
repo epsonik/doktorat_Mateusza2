@@ -1,0 +1,74 @@
+Oczywiście. Dostarczony rozdział przeglądu literatury jest szczegółowy i merytoryczny, ale jego obecna struktura, dzieląca modele na "Kodowanie obrazu" i "Model językowy", może utrudniać zrozumienie całościowych architektur. Te dwa komponenty są ze sobą nierozerwalnie związane.
+
+Lepszym podejściem jest **organizacja chronologiczno-koncepcyjna**, która przedstawia ewolucję metod – od prostszych do bardziej złożonych – i omawia każdą architekturę jako spójną całość. Poniżej przedstawiam propozycję nowej, bardziej logicznej struktury wraz z uzasadnieniem.
+
+---
+
+### Proponowana struktura rozdziału
+
+**Rozdział 1. Przegląd literatury**
+
+* **1.1. Wprowadzenie**
+    * Definicja problemu na styku wizji komputerowej (CV) i przetwarzania języka naturalnego (NLP).
+    * Główne wyzwania: subiektywność, wierność deskryptywna, adekwatność kontekstowa.
+    * Zakres pracy i kluczowe definicje ("podpis automatyczny").
+    * Zarys struktury przeglądu.
+
+* **1.2. Metody klasyczne (przed erą głębokiego uczenia)**
+    * Wprowadzenie do paradygmatu: ekstrakcja cech i generowanie tekstu na podstawie reguł lub wyszukiwania.
+    * **1.2.1. Podejścia oparte na szablonach**
+        * *(Treść z obecnej sekcji 1.1)*
+    * **1.2.2. Podejścia oparte na wyszukiwaniu**
+        * *(Treść z obecnej sekcji 1.2)*
+    * Podsumowanie i ograniczenia metod klasycznych (mała elastyczność, zależność od istniejących podpisów).
+
+* **1.3. Rewolucja głębokiego uczenia: Architektura Koder-Dekoder**
+    * Wprowadzenie do ogólnego paradygmatu koder-dekoder jako fundamentu nowoczesnych metod.
+    * **1.3.1. Pierwsze modele: Globalne cechy obrazu i sieci rekurencyjne (RNN)**
+        * **Koder:** Wykorzystanie sieci CNN (np. GoogLeNet, VGG) do ekstrakcji pojedynczego, globalnego wektora cech. *(Treść z obecnej sekcji 2.1 "Metody klasyczne")*.
+        * **Dekoder:** Użycie sieci LSTM do generowania podpisu na podstawie wektora globalnego. *(Treść z początku obecnej sekcji 3.1, w tym odniesienie do pracy Vinyals et al., 2015)*.
+        * Ograniczenia: Problem "wąskiego gardła" informacyjnego, utrata detali przestrzennych.
+
+    * **1.3.2. Przełom: Wprowadzenie mechanizmów uwagi**
+        * Wprowadzenie ogólnej idei uwagi jako mechanizmu dynamicznego skupiania się na fragmentach obrazu.
+        * Analogia do ludzkiej percepcji: uwaga oddolna (sterowana bodźcem) i odgórna (sterowana zadaniem).
+        * **A. Uwaga odgórna: Siatka cech i dekoder LSTM**
+            * Opis modelu "Show, Attend, and Tell" (Xu et al., 2015) jako kluczowego przykładu.
+            * Integracja treści z obecnych sekcji **2.2.1** (Uwaga na siatce) i **3.1** (modyfikacje LSTM, np. "strażnik wizualny", który jest mechanizmem uwagi sterowanym przez dekoder).
+        * **B. Uwaga oddolna: Skupienie na regionach obiektów**
+            * Opis podejścia opartego na detektorach obiektów (Faster R-CNN) do definiowania istotnych regionów.
+            * Kluczowy model: Anderson et al. (2018).
+            * *(Treść z obecnej sekcji 2.2.2 "Uwaga skupiona na regionach")*.
+
+* **1.4. Era transformatorów: Modele oparte w całości na uwadze**
+    * Wprowadzenie architektury Transformatora jako ewolucji mechanizmu uwagi.
+    * **1.4.1. Modelowanie relacji wizualnych: Uwaga własna w koderze**
+        * Wyjaśnienie, jak uwaga własna (self-attention) modeluje zależności między regionami/fragmentami obrazu.
+        * *(Treść z obecnej sekcji 2.2.3 "Uwaga własna")*.
+    * **1.4.2. Generowanie tekstu: Dekoder transformatorowy**
+        * Opis działania dekodera (maskowana uwaga własna, uwaga krzyżowa).
+        * *(Treść z obecnej sekcji 3.2 "Transformator")*.
+    * Prezentacja kompletnych architektur transformatorowych i ich modyfikacji (np. uwzględnianie geometrii, mechanizmy bramkowania).
+
+* **1.5. Alternatywne paradygmaty generowania**
+    * **1.5.1. Dekodery oparte na sieciach splotowych (CNN)**
+        * *(Treść z początku obecnej sekcji 3.3)*.
+    * **1.5.2. Generowanie nieautoregresywne**
+        * Wyjaśnienie idei jednoczesnego generowania słów.
+        * Zalety (szybkość) i wady (spójność).
+        * *(Treść z drugiej części obecnej sekcji 3.3)*.
+
+* **1.6. Podsumowanie przeglądu literatury**
+    * Syntetyczne podsumowanie ewolucji metod: od szablonów, przez proste modele koder-dekoder, po zaawansowane architektury oparte na różnych formach uwagi.
+    * Wskazanie kluczowych trendów w badaniach.
+
+---
+
+### Uzasadnienie nowej struktury
+
+1.  **Logiczna i intuicyjna narracja:** Struktura prowadzi czytelnika przez historię rozwoju dziedziny. Zaczyna od prostych, historycznych metod, a następnie płynnie przechodzi do rewolucji głębokiego uczenia, pokazując, jak kolejne koncepcje (globalne cechy, uwaga, transformatory) rozwiązywały problemy swoich poprzedników.
+2.  **Spójność architektur:** Zamiast sztucznie rozdzielać koder i dekoder, nowa struktura omawia całe modele (np. "CNN+LSTM", "Faster R-CNN+Attention", "Transformer"). Dzięki temu czytelnik od razu rozumie, jak obie części współpracują, co jest kluczowe dla zrozumienia mechanizmu uwagi.
+3.  **Eliminacja powtórzeń:** Koncepcje takie jak LSTM czy uwaga są wprowadzane i szczegółowo wyjaśniane w jednym, dedykowanym miejscu, co eliminuje redundancję i poprawia przepływ tekstu.
+4.  **Lepsze grupowanie koncepcji:** Wszystkie rodzaje uwagi (odgórna, oddolna, własna) są omawiane w logicznym następstwie, co pozwala lepiej zrozumieć ich ewolucję i wzajemne relacje. Koncepcja "strażnika wizualnego" (visual sentinel) trafia we właściwe miejsce – jako udoskonalenie dekodera LSTM w modelach z uwagą odgórną.
+
+Zastosowanie tej struktury sprawi, że rozdział będzie bardziej przejrzysty, spójny i łatwiejszy do przyswojenia dla czytelnika.

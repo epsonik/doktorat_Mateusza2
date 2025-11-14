@@ -1,0 +1,193 @@
+\chapter{Badania podstawowej architektury koder-dekoder}
+\label{rozdzial:badania_podstawowej_architektury_koder_dekoder}
+Rozdział przedstawia badania nad optymalizacją architektury typu koder-dekoder w zadaniu automatycznego generowania podpisów do obrazów. Analizie poddano wpływ poszczególnych komponentów modelu na jego ostateczną wydajność w ramach dwóch wariantów integracji cech wizualnych i tekstowych, poprzez fuzję oraz wstrzykiwanie wstępne. Obie metody opisano w Sekcji~\ref{sekcja:jak_poloczyc_cechy_obrazu_tekstu}. 
+
+Celem badań było udoskonalenie ugruntowanej w literaturze architektury poprzez modyfikację jej komponentów oraz hiperparametrów. W ramach metodyki badawczej oceniono wpływ zastosowania różnych, wstępnie trenowanych sieci szkieletowych (m.in. VGG, Resnet, Inception, Densenet) na jakość ekstrakcji cech wizualnych. Ponadto zintegrowano modele osadzeń słów GloVe i FastText w celu ewaluacji ich wpływu na jakość lingwistyczną generowanych podpisów.
+
+Wprowadzone modyfikacje przyczyniły się do wzrostu wydajności modelu bez wprowadzania zmian w jego topologii, co mówi o potencjale zastosowanej metody. Wyniki przeprowadzonych badań zostały opublikowane w artykułach~\cite{Bartosiewicz2024Optimal, Bartosiewicz2024Improving}.
+
+\section{Architektura modelu}
+\label{sekcja:architektura_modelu}
+Podstawę dla prowadzonych analiz stanowiła architektura koder-dekoder. Model składa się z wizualnej ścieżki przetwarzania, realizowanej przez koder, oraz tekstowej, obsługiwanej przez dekoder. \textit{Komponent ekstrakcji cech obrazu} w koderze zamienia obraz wejściowy w semantycznie bogatą reprezentację wektorową za pomocą sieci szkieletowej (por. Sekcja~\ref{rozdzial:reprezentacja_obrazu})
+Na jego wyjściu powstaje wektor cech obrazu, który jest spłaszczeniem warstw w pełni połączonych (\gls{gls:fully-connected-layer}) wielowymiarowej mapy cech obrazu $\mathbf{V=\{\mathbf{v}_1, \mathbf{v}_2, ..., \mathbf{v}_k\}}$, gdzie $\mathbf{v}_i$ jest wektorem cech odpowiadającym $i$-temu regionowi przestrzennemu. 
+Tak wygenerowany wektor cech obrazu jest następnie przetwarzany przez \textit{komponent adaptacyjny}, gdzie następuje liniowa transformacja wektora cech obrazu do przestrzeni o wymiarowości zgodnej z przestrzenią dekodera. Dopiero na tym etapie wagi w mapie cech są dostrajane (\gls{gls:fine-tuning}) do specyfiki zadania. 
+
+Ścieżka dekodera rozpoczyna się od \textit{komponentu osadzania słów}, który przetwarza słowa zakodowane gorącojedynkowo na wektory osadzeń (por. Sekcja~\ref{rozdzial:reprezentacja_slow}). Tak zakodowane słowa są wejściem do rekurencyjnej sieci neuronowej w \textit{komponencie RNN}. Komponent ten modeluje zależności sekwencyjne i generuje stan ukryty, agregujący informacje o dotychczas wytworzonej części podpisu (por. Sekcja~\ref{sekcja:modelowanie-sekwencji}).
+
+Mechanizm integracji informacji wizualnej z kodera i tekstowej w dekoderze różnicuje badane modele. W pracy zbadano architekturę fuzji (merge architecture), gdzie  integracja następuje w każdym kroku czasowym w \textit{komponencie fuzji} oraz architekturę wstrzykiwania wstępnego (pre-injection architecture), gdzie informacja wizualna jest wykorzystywana jednorazowo do inicjalizacji stanu początkowego \textit{komponentu RNN}.
+
+
+
+\input{wykresy/architektury/warstwy/architektura_modelu_badan_nad_warstwami}
+W architekturze fuzji, której schemat przedstawiono na Rysunku~\ref{fig:architektura_modelu_badan_nad_warstwami} synteza informacji wizualnej i tekstowej zachodzi w \textit{komponencie fuzji} w każdym kroku czasowym (por. Sekcja~\ref{sekcja:jak_poloczyc_cechy_obrazu_tekstu}).  Komponent ten integruje wektor cech obrazu z \textit{komponentu adaptacyjnego} z wyjściem rekurencyjnej sieci neuronowej, tworząc podstawę do predykcji kolejnego słowa. 
+
+Analizie poddano fuzję przez dodawanie i konkatenację. W metodzie dodawania wektory cech obu modalności, o identycznej wymiarowości, są dodawane do siebie element po elemencie (\gls{gls:element-wise}). W metodzie konkatenacji wektory te są łączone wzdłuż wymiaru cech, tworząc pojedynczy, dłuższy wektor reprezentacji. 
+
+Połączona reprezentacja jest przekazywana do \textit{komponentu predykcji słów}, zaimplementowanego jako sekwencja warstw w pełni połączonych z funkcją aktywacji softmax, gdzie wybierane jest kolejne słowo w sekwencji. W badaniach wykorzystano wstępnie wytrenowane modele osadzeń GloVe oraz FastText i porównano architektury LSTM oraz GRU. Warianty eksperymentalne \textit{komponentu adaptacyjnego} obejmowały różne rozmiary warstwy wyjściowej oraz możliwość jego całkowitej eliminacji z architektury.
+
+\input{wykresy/architektury/warstwy/model_bazowy}
+Drugi badany wariant, architektura wstrzykiwania wstępnego przedstawiony na Rysunku~\ref{fig:model_bazowy}, modyfikuje sposób nadawania wartości początkowej dekodera. Zaadaptowany wektor cech obrazu jest wprowadzany do modelu jednorazowo, służąc do nadania wartości początkowej dekodera rekurencyjnego. W badaniach użyto sieć LSTM, więc zaadaptowany wektor cech obrazu posłużył do zainicjowania zarówno stanu ukrytego ($\mathbf{h_{t=0}}$) oraz stanu komórki ($\mathbf{c_{t=0}}$). W ten sposób pełna informacja wizualna jest jednorazowo "wstrzykiwana" do komórki LSTM przed rozpoczęciem generowania pierwszego słowa. W kolejnych krokach czasowych dekoder operuje wyłącznie na swoim stanie wewnętrznym oraz osadzeniach poprzednio wygenerowanego słowa. W eksperymentach dla tej architektury badano wpływ różnych sieci szkieletowych, takich jak Resnet152, Densenet201, Regnet32, InceptionV3 oraz analizowano, jak rozmiar stanu ukrytego sieci LSTM wpływa na wydajność modelu w zależności od zastosowanej sieci szkieletowej w koderze. 
+
+W procesie generowania sekwencji wyjściowej dla obu architektur zastosowano algorytm przeszukiwania wiązkowego (beam search, opisany w Sekcji~\ref{rozdzial:generowanie_sekwencji_wyjsciowej}). Dekodowanie rozpoczyna się od słowa sygnalizującego początek zdania $<$START$>$. W każdym kroku, dla każdej z $k$ hipotez (fragmentu zdania) o najwyższym dotychczasowym prawdopodobieństwie logarytmicznym, model generuje predykcje kolejnych słów. Z powstałego zbioru nowych, rozszerzonych sekwencji kandydujących, do dalszego przetwarzania zachowywane jest jedynie $k$ najbardziej prawdopodobnych, gdzie $k$ jest predefiniowanym parametrem szerokości wiązki. Proces ten jest kontynuowany aż do osiągnięcia kryterium terminacji -- wygenerowania tokenu końca sekwencji $<$STOP$>$ lub osiągnięcia maksymalnej długości podpisu. Ostatecznie wybierana jest hipoteza o najwyższym skumulowanym prawdopodobieństwie. 
+
+W ramach badań architektury wstrzykiwania wstępnego analizowano również wpływ parametru $k$ na jakość generowanych podpisów. W przypadku architektury fuzji stosowano algorytm przeszukiwania wiązkowego z $k=1$, czyli wybierano token o najwyższym prawdopodobieństwie wystąpienia. Jest to adekwatne do stosowania przeszukiwania zachłannego.
+\section{Scenariusz badawczy}
+\subsection{Badania architektury fuzji}
+\label{sekcja:scenariusz_badawczy_arch_fuzji}
+Scenariusz badawczy dla architektury fuzji obejmował systematyczną analizę i optymalizację jej komponentów, zdefiniowanych w Sekcji~\ref{sekcja:architektura_modelu}. Głównym celem była ocena wpływu zastosowania alternatywnych komponentów modelu na jego wydajność. Równoległym priorytetem była identyfikacja konfiguracji o zredukowanej złożoności obliczeniowej, przy zachowaniu wysokiej jakości generowanych podpisów, co ma znaczenie dla implementacji w środowiskach o ograniczonych zasobach sprzętowych.
+
+Proces badawczy podzielono na trzy fazy. Faza pierwsza koncentrowała się na identyfikacji optymalnej kombinacji sieci szkieletowej oraz modelu osadzeń słów. Zgodnie z literaturą~\cite{Yang2017ImageCW, Xu2015ShowAttendTell, Anderson2018BottomUpAT, Herdade2019Image, Lebret2015Phrase, Karpathy2015Deep, Sugano2016SeeingW}, analizowano sieci szkieletowe VGG16/19, Resnet50/152V2, InceptionV3, Xception, Densenet121/201 oraz Mobilenet/MobilenetV2. Dla \textit{komponentu osadzania słów} porównano wstępnie wytrenowane modele GloVe oraz FastText. W celu metodologicznego wyizolowania wpływu tych dwóch komponentów, wymiarowość \textit{komponentu RNN} oraz \textit{komponentu predykcji} ustalono na stałym poziomie 256 jednostek.
+
+Faza druga bazowała na optymalnej parze wyłonionej w poprzednim etapie (sieć Xception oraz osadzenia GloVe). Przeprowadzono analizę komponentów odpowiedzialnych za przetwarzanie i integrację wektorów multimodalnych. Oceniono wpływ \textit{komponentu adaptacyjnego}, testując warianty z warstwą redukującą wymiarowość cech obrazu do 128, 256 i 512 neuronów oraz wariant bez tej warstwy. Porównano strategie integracji modalności, poprzez dodawanie wektorów oraz ich konkatenację. W \textit{komponencie predykcji słów} badano różne konfiguracje warstw w pełni połączonych. Jako dekoder zaimplementowano sieć LSTM, analizując wpływ liczby jej jednostek ukrytych.
+
+Trzecia faza poświęcona była weryfikacji wpływu typu sieci rekurencyjnej na skuteczność modelu. W tym celu powtórzono najbardziej obiecujące eksperymenty z fazy drugiej, zastępując architekturę LSTM siecią GRU. Celem było ustalenie, czy model GRU, o mniejszej złożoności, jest w stanie uzyskać porównywalną lub wyższą wydajność.
+
+Jakość generowanych podpisów ewaluowano za pomocą metryk BLEU (1-4), CIDEr oraz SPICE. Zgodnie z wnioskami z analizy metryk (por. Sekcja~\ref{sekcja:porownanie_metryk}), za najważniejsze wskaźniki oceny, wykazujące najwyższą korelację z oceną ludzką, przyjęto CIDEr i SPICE.
+
+Ostatnim etapem była walidacja zdolności do modeli o najwyższej wydajności. Ocenę przeprowadzono na obrazach spoza dystrybucji danych treningowych (\gls{gls:ood}), włączając fotografie ze świata rzeczywistego oraz obrazy wygenerowane syntetycznie przez model DALL-E 3~\cite{Dalle2023dalle3}. Analiza ta pozwoliła ocenić odporność i skuteczność modeli w konfrontacji z nowymi, niezaobserwowanymi wcześniej obiektami i scenami.
+
+\subsection{Badania architektury wstrzykiwania wstępnego}
+\label{sekcja:scenariusz_badawczy_arch_wstrzykiwaia_wstepnego}
+Badania architektury wstrzykiwania wstępnego podzielono na dwa etapy w celu zbadania parametrów treningowych modelu oraz przebiegu generowania zdań przez wytrenowany model. W pierwszym etapie przeprowadzono eksperymenty z wykorzystaniem sieci szkieletowych oraz różnych rozmiarów stanu ukrytego sieci LSTM. Na tym etapie zgodnie z literaturą~\cite{Vinyals2015Show, Vinyals2017ShowTellLessonsLearned}, w eksperymentach standardowo stosowano $k=3$.
+
+W drugim etapie analizowano wpływ szerokości wiązki $k$ w algorytmie przeszukiwania wiązkowego podczas inferencji. Modele wytrenowane w pierwszym etapie poddano ponownej ewaluacji z różnymi wartościami parametru $k$, co pozwoliło na wyznaczenie jego optymalnej wartości dla procesu inferencji. 
+
+Na każdym etapie wyniki oceniano za pomocą metryk BLEU (1-4), CIDEr oraz SPICE adekwatnie do oceny modeli w architekturze fuzji.
+
+\section{Przebieg treningu}
+Trening obu architektur poprzedzono zunifikowanym wstępnym przetwarzaniem danych. Obrazy wejściowe zostały przeskalowane i znormalizowane do wymiarów wymaganych przez poszczególne sieci szkieletowe: $256 \times 256 \times 3$ dla modeli VGG16/19, Resnet50/152V2, Densenet121/201 oraz Mobilenet/MobilenetV2; $342 \times 342 \times 3$ dla InceptionV3 i Xception; oraz $384 \times 384 \times 3$ dla Regnet32. Wartości pikseli znormalizowano do zakresu $[0, 1]$. Równolegle, podpisy referencyjne poddano tokenizacji zgodnie z procedurą opisaną w Sekcji~\ref{rozdzial:wstepne_przetwarzanie}, tworząc słownik dla całego korpusu uzupełniony o tokeny specjalne $<$START$>$ i $<$STOP$>$.
+
+W ramach pojedynczej iteracji treningowej, partia obrazów była przetwarzana przez \textit{komponent ekstrakcji cech obrazu}, gdzie wybrana sieć szkieletowa generowała wektor cech wizualnych. Wymiarowość tego wektora była zależna od użytego modelu i wynosiła od 1000 w Mobilenet do 4096 w VGG16. Równocześnie podpisy w formie tokenów przechodziły przez \textit{komponent osadzania słów}, gdzie każde słowo było odwzorowywane na 200-wymiarowy wektor osadzeń GloVe lub FastText.
+
+Podczas treningu zastosowano uczenie z nauczycielem (\gls{gls:teacher-forcing}). W każdym kroku czasowym $t$, na wejście \textit{komponentu RNN} podawano osadzenie prawidłowego słowa z podpisu referencyjnego z kroku $t-1$. Na podstawie stanu ukrytego $\mathbf{h}_{t-1}$ oraz bieżącego wejścia, sieć RNN obliczała nowy stan ukryty $\mathbf{h}_t$.
+
+Różnica między architekturami manifestowała się w sposobie wykorzystania wektora cech obrazu. W architekturze fuzji zaadaptowany wektor cech obrazu był w każdym kroku $t$ łączony w \textit{komponencie fuzji} ze stanem ukrytym $\mathbf{h_t}$. Połączony wektor stanowił podstawę do predykcji następnego słowa $y_t$. W architekturze wstrzykiwania wstępnego wektor cech obrazu był jednorazowo wykorzystywany do inicjalizacji stanu ukrytego $ \mathbf{h_{t=0}}$ oraz stanu komórki $\mathbf{c_{t=0}}$ 
+komórki LSTM.
+
+Optymalizację parametrów modelu prowadzono poprzez minimalizację funkcji straty w postaci entropii krzyżowej (\gls{gls:cross-entropy-loss}). Gradienty obliczano metodą wstecznej propagacji błędów i aktualizowano przy użyciu optymalizatora Adam z parametrami $\beta_1 = 0,9$, $\beta_2 = 0,999$, $\epsilon = 1 \times 10^{-8}$, bez zaniku wag (\gls{gls:weight-decay}). Zastosowano obcinanie gradientu (\gls{gls:gradient-clipping}) z progiem 5. Bazowy współczynnik uczenia ustalono na $4 \times 10^{-4}$ w dekoderze oraz $1 \times 10^{-4}$ dla dostrajanego kodera. Uczenie prowadzono w partiach o rozmiarze 10. Wartości te dobrano na podstawie standardowych praktyk w domenie oraz eksperymentów wstępnych.
+
+Zaimplementowano mechanizmy kontroli przebiegu uczenia. Zastosowano adaptacyjną zmianę współczynnika uczenia (\gls{gls:learning-rate}), redukując jego wartość o 20\% (mnożnik 0,8), jeżeli metryka BLEU-4 na zbiorze walidacyjnym nie uległa poprawie przez osiem kolejnych epok. Trening zaplanowano na 100 epok, z mechanizmem wczesnego zatrzymania (\gls{gls:early-stopping}), przerywającym uczenie, jeżeli wartość funkcji straty na zbiorze walidacyjnym nie zmniejszyła się przez pięć kolejnych epok. Punkty kontrolne modelu zapisywano w przypadku poprawy funkcji straty na zbiorze walidacyjnym.
+
+
+\section{Przebieg testowania}
+
+Ewaluację wytrenowanych modeli przeprowadzono na zbiorze testowym, stosując ocenę ilościową oraz jakościową. Procedura ewaluacji dla każdego modelu rozpoczynała się od wczytania punktu kontrolnego (\gls{gls:checkpoint}), który uzyskał najniższą funkcję straty na zbiorze walidacyjnym, wraz z odpowiadającym mu słownikiem. Obrazy testowe poddano tożsamym transformacjom co w procesie uczenia, obejmującym skalowanie i normalizację. Następnie za pomocą odpowiedniej sieci szkieletowej ekstrahowano dla każdego z nich wektor cech wizualnych.
+
+Inferencję przeprowadzano dwoma strategiami dekodowania, zależnie od modelu. Dla architektury fuzji zastosowano deterministyczną strategię przeszukiwania zachłannego (\gls{gls:greedy-search}), opisaną w Sekcji~\ref{rozdzial:generowanie_sekwencji_wyjsciowej}. Strategia ta polegała na wyborze w każdym kroku czasowym słowa o najwyższym prawdopodobieństwie, obliczonym na podstawie stanu ukrytego dekodera z poprzedniego kroku oraz wektora cech obrazu, dostarczanego w każdym kroku.
+
+Dla architektury wstrzykiwania wstępnego wykorzystano algorytm przeszukiwania wiązkowego (\gls{gls:beam-search}) z predefiniowaną szerokością wiązki $k$ (por. Sekcja~\ref{rozdzial:generowanie_sekwencji_wyjsciowej}). Metoda ta polega na utrzymywaniu i rozwijaniu $k$ najbardziej prawdopodobnych sekwencji kandydujących w każdym kroku dekodowania.
+
+Niezależnie od zastosowanej strategii, dekodowanie sekwencji wyjściowej inicjowano tokenem $<$START$>$ i kontynuowano aż do osiągnięcia kryterium terminacji, czyli wygenerowania tokenu końca sekwencji $<$STOP$>$ lub osiągnięcia maksymalnej, predefiniowanej długości podpisu. Finalny podpis konstruowano poprzez konkatenację wygenerowanych słów, z pominięciem tokenów specjalnych. 
+
+Tak uzyskane zdanie podlegało ewaluacji ilościowej poprzez porównanie z pięcioma podpisami referencyjnymi przy użyciu metryk BLEU-1 do BLEU-4, CIDEr oraz SPICE.
+
+Ewaluację ilościową uzupełniono o analizę jakościową o dwojakim charakterze. Z jednej strony badano przykłady trafnie wygenerowanych podpisów w celu identyfikacji mocnych stron modeli. Z drugiej strony przeprowadzono systematyczną analizę i kategoryzację popełnianych błędów, aby zdiagnozować ich słabości i potencjalne kierunki dalszych badań.
+
+\section{Rezultaty}
+\subsection{Wyniki dla architektury fuzji}
+\subsubsection{Ewaluacja komponentów kodowania danych wejściowych}
+Pierwsza faza badań zgodnie z scenariuszem badawczym w Sekcji~\ref{sekcja:scenariusz_badawczy_arch_fuzji}, obejmowała ewaluację wpływu sieci szkieletowych oraz modeli osadzeń słów na skuteczność generowania podpisów. Celem była weryfikacja hipotezy szczegółowej (H1). Porównano dziesięć architektur sieci szkieletowych (opisanych w Sekcji~\ref{rozdzial:reprezentacja_obrazu}), testując każdą w połączeniu z osadzeniami GloVe oraz FastText.
+
+
+W tej fazie badań zastosowano stałą konfigurację komponentów dekodera, zgodną z założeniami scenariusza. \textit{Komponent adaptacyjny} składa się z pojedynczej warstwy w pełni połączonej (\gls{gls:fully-connected-layer}), odpowiadał z redukcję wymiaru wektora cech obrazu do 256. \textit{Komponent RNN} stanowiła sieć LSTM o 256 jednostkach ukrytych.  \textit{Komponent predykcji słów} składa się z dwóch warstw FC. W pierwszej warstwie rozmiar wektora wejściowego i wyjściowego wynosi 256. Druga warstwa generuje na wyjściu prawdopodobieństwa słów. Rozmiar wejściowy drugiej warstwy wynosi 256, podczas gdy rozmiar wyjściowy jest równy rozmiarowi słownika. Zmiennymi w eksperymencie był wyłącznie sieć szkieletowa oraz \textit{komponent ekstrakcji cech obrazu} oraz \textit{komponent osadzania słów}.
+
+\input{rezultaty/warstwy/rezultaty_srednio}
+Ocenę ilościową przeprowadzono przy użyciu metryk BLEU (1-4) oraz CIDEr, przy czym CIDEr przyjęto jako główny wskaźnik skuteczności przy wyborze optymalnej konfiguracji. Przeanalizowano również efektywność obliczeniową modeli, uwzględniając całkowitą liczbę parametrów oraz czas inferencji.
+Analiza wyników w Tabeli~\ref{tab:rezultaty_srednio}) wskazuje, że najwyższą skuteczność osiągnął model wykorzystujący architekturę Xception. W konfiguracji z osadzeniami GloVe uzyskano wynik CIDEr równy 78,13. Marginalnie niższy rezultat (77,64) odnotowano dla tej samej architektury z wektorami FastText. Wysoką skuteczność wykazała również sieć Densenet201 (CIDEr 76,74 z FastText oraz 76,54 z GloVe). Najniższe wyniki uzyskano dla starszych architektur VGG16 i VGG19.
+
+Wykazano, że wybór metody osadzania słów wpływa na końcową jakość modelu jednak efekt ten jest zależny od architektury sieci szkieletowej. Dla większości sieci (m.in. Densenet121, Densenet201, InceptionV3, Mobilenet) wektory FastText skutkowały wyższymi wartościami CIDEr. Odwrotną zależność zaobserwowano dla Resnet152V2 oraz najskuteczniejszej architektury Xception, gdzie wektory GloVe pozwoliły osiągnąć najwyższy wynik.
+
+\input{rezultaty/warstwy/parametry/zaleznosc_metryki_cider_od_ilosci_parametrow_modelu}
+Analiza zależności pomiędzy metryką CIDEr a liczbą parametrów przedstawiona na Rysunku~\ref{fig:zaleznosc_metryki_cider_od_ilosci_parametrow_modelu}) wskazuje na brak monotonicznej zależności między wzrostem złożoności modelu a poprawą jakości generowanych podpisów. Modele o największej liczbie parametrów, VGG16 (143,26 mln) i VGG19 (144,47 mln), charakteryzowały się najniższymi wynikami CIDEr. Optymalne rezultaty osiągnęły modele o umiarkowanej złożoności (22-28 mln parametrów), w tym Xception (25,24 mln) i Densenet201 (22,67 mln). Sugeruje to istnienie progu złożoności, po przekroczeniu którego dalsze zwiększanie pojemności modelu nie implikuje poprawy skuteczności w badanym zadaniu.
+
+Stwierdzono również, że wymiarowość wektora cech obrazu nie jest bezpośrednio skorelowana ze skutecznością modelu. Najdłuższe wektory (VGG, 4096 elementów) nie zapewniały najwyższych wartości metryk. Najskuteczniejsze modele wykorzystywały wektory 2048-elementowe (Xception) oraz 1920-elementowe (Densenet201). Decydującym czynnikiem okazała się jakość wyuczonej reprezentacji wizualnej, a nie sama wymiarowość wektora cech.
+
+\input{rezultaty/warstwy/naj_epoka/zaleznosc_metryki_cider_od_czasu_generowania_sekwencji_wyjsciowej}
+Relacja między czasem inferencji a wartością metryki CIDEr na Rysunku~\ref{fig:zaleznosc_metryki_cider_od_czasu_generowania_sekwencji_wyjsciowej} jest niejednoznaczna. Model Densenet201 z FastText charakteryzował się wysoką efektywnością obliczeniową (1748 ms) przy jednoczesnej wysokiej skuteczności (CIDEr 76,74). Model Xception z GloVe uzyskał najwyższy wynik CIDEr (78,13) przy dłuższym czasie inferencji (2414 ms). Modele o najdłuższych czasach inferencji (np. Mobilenet z GloVe, 3860 ms) nie osiągały czołowych wyników jakościowych.
+
+\input{rezultaty/warstwy/przewidziane_podpisy_obrazy/porownanie_przewidzianych_podpisow}
+\input{rezultaty/warstwy/przewidziane_podpisy_obrazy/przewidziane_obrazy}
+W Tabeli~\ref{tab:porownanie_przewidzianych_podpisow} zaprezentowano przykładowe podpisy dla obrazów z Rysunku~\ref{fig:przewidziane_obrazy}. Wygenerowane podpisy są generalnie poprawne gramatycznie i spójne semantycznie z zawartością obrazu. Zaobserwowano jednak przypadki halucynacji obiektów. Na Rysunku~\ref{fig:przewidziane_obrazy_b} model wygenerował obiekt "kuchenka", wnioskując o jego prawdopodobnej obecności na podstawie kontekstu (kuchnia, kuchenka mikrofalowa), mimo jego faktycznej nieobecności na obrazie, co wskazuje na wpływ korelacji występujących w danych treningowych.
+
+\input{rezultaty/warstwy/przewidziane_podpisy_obrazy/porownanie_przewidzianych_podpisow_para}
+W Tabeli~\ref{tab:porownanie_przewidzianych_podpisow_para} porównano podpisy dla Rysunku~\ref{fig:przewidziane_obrazy_d} wygenerowane przez najskuteczniejszy model (Xception + GloVe) oraz przez model Densenet201. Model oparty na Densenet201 nie rozpoznał poprawnie obiektów definiujących scenę na obrazie para młoda" ani relacji (krojenie tortu weselnego). Znajduje to odzwierciedlenie w niskiej wartości CIDEr (11,12), pomimo poprawności gramatycznej zdania. Model z Xception wygenerował podpis adekwatny semantycznie, osiągając CIDEr wyższy o 146,85 punktu.
+
+Podsumowując pierwszy etap badań, jako optymalną konfigurację wytypowano model oparty na sieci Xception w połączeniu z osadzeniami GloVe (CIDEr: 78,13; SPICE: 15,16). Konfiguracja ta została wybrana do dalszych badań.
+
+\subsubsection{Analiza zdolności do generalizacji}
+Istotnym kryterium oceny modeli uczenia maszynowego jest ich zdolność do generalizacji na danych spoza dystrybucji zbioru treningowego. Testy na obrazach zewnętrznych wykazały, że skuteczność generalizacji jest silnie uzależniona od zgodności zawartości obrazu z kategoriami reprezentowanymi w zbiorze MS COCO. Sceny zawierające znane obiekty i konteksty były opisywane precyzyjnie, natomiast obiekty spoza dystrybucji prowadziły do generowania podpisów niespójnych semantycznie.
+
+\input{rezultaty/warstwy/obrazy_zew/obrazy_zew}
+Analiza błędów potwierdziła, że wynikają one z ograniczeń leksykalnych i semantycznych zbioru treningowego. Na Rysunku~\ref{fig:obrazy_zew_e} obiekt "lama" (nieobecny w słowniku MS COCO) został błędnie sklasyfikowany jako wizualnie i semantycznie zbliżony obiekt "owca" (\gls{gls:substytucja-semantyczna}). W przypadku braku powiązanych kategorii (np. "delfiny", Rysunek~\ref{fig:obrazy_zew_e}), model generował podpisy oderwane od treści obrazu (\gls{gls:halucynacja-kategoryczna}).
+
+Eksperyment kontrolowany z wykorzystaniem obrazów syntetycznych wygenerowanych przez narzędzie DALL-E 3~\cite{openai2023dalle3} potwierdził te obserwacje. Model poprawnie identyfikował obiekty z kategorii MS COCO na Rysunku~\ref{fig:obrazy_zew_a}, generując jednocześnie błędne podpisy dla obiektów spoza tego zbioru na Rysunkach~\ref{fig:obrazy_zew_c} i \ref{fig:obrazy_zew_d}).
+
+Wykazano, że obecność kategorii w zbiorze treningowym nie gwarantuje poprawnego rozpoznania w nietypowym kontekście. Na Rysunku~\ref{fig:obrazy_zew_b} "pies" został błędnie zidentyfikowany jako "mężczyzna", mimo poprawnego rozpoznania akcji ("jazda na rowerze"). Dowodzi to ograniczonej zdolności modelu do kompozycyjnego rozumienia sceny w przypadku atypowych konfiguracji wizualnych.
+
+\subsubsection{Optymalizacja mechanizmu fuzji i predykcji słów}
+\label{sec:adaptmergepredict}
+W drugiej fazie badań zgodnie z scenariuszem badań dokonano optymalizacji \textit{komponentu RNN, adaptacyjnego, fuzji i predykcji słów} odpowiedzialnych za integrację cech multimodalnych i generowanie sekwencji wyjściowej. Jako konfigurację bazową wykorzystano koder Xception oraz osadzenia GloVe, zgodnie z rezultatami fazy pierwszej.
+
+\input{rezultaty/warstwy/merging_add}
+\input{rezultaty/warstwy/merging_concatenate}
+W pierwszej kolejności porównano metody fuzji cech wizualnych i tekstowych przez dodawanie oraz konkatenację. Zestawiono modele o zbliżonej architekturze, ustalając wymiarowość komponentów na 256. Wyniki dla dodawania przedstawiono w Tabeli~\ref{tab:mergingADD}, a dla konkatenacji w Tabeli~\ref{tab:mergingCONCATENATE}.
+
+Wyniki wykazały wyższość metody konkatenacji. W porównywalnych konfiguracjach model wykorzystujący konkatenację osiągnął wynik CIDEr na poziomie 81,85 (25,32 mln parametrów), przewyższając model bazujący na dodawaniu o 3,72 punktu (CIDEr 78,13; 25,2 mln parametrów). Metoda konkatenacji okazała się również znacznie efektywniejsza obliczeniowo, redukując czas inferencji niemal trzykrotnie (2247 ms vs 6336 ms). Konkatenacja zachowuje odrębność informacji z obu modalności, co zapewnia późniejszym warstwom większą elastyczność w modelowaniu interakcji multimodalnych, w przeciwieństwie do dodawania, które wymusza natychmiastową fuzję w tej samej przestrzeni wektorowej.
+
+Następnie przeprowadzono optymalizację hiperparametrów dekodera opartego na LSTM. Analizowano wpływ wymiarowości \textit{komponenty RNN, adaptacyjnego oraz predykcji słów}. Zaobserwowano, że zwiększanie wymiarowości \textit{komponentu predykcji słów}, prowadziło do poprawy wyników. Najlepsze rezultaty uzyskano dla konfiguracji, w której rozmiar \textit{komponentu RNN oraz adaptacyjnego} ustalono na 256, a rozmiar \textit{komponentu predykcji słów} na 512.
+
+Architektura o konfiguracji 256/256/512 osiągnęła najwyższy wynik CIDEr (82,49) oraz SPICE (16,08) (wiersz 4, Tabela~\ref{tab:mergingCONCATENATE}), przy 27,31 mln parametrów i czasie inferencji 2812 ms. Zestawienie modelu bez dodatkowej warstwy FC po \textit{komponencie fuzji} (wiersz 9) z modelem posiadającym tę warstwę (wiersz 4) ujawnia jej istotność (różnica 3,19 CIDEr). Wprowadzenie nieliniowości w tej warstwie wspomaga naukę złożonego mapowania i efektywną integrację informacji multimodalnych przed finalną predykcją. Uzyskany rezultat przewyższa wyniki modeli referencyjnych w Tabeli~\ref{tab:rezultaty_srednio}, co potwierdza skuteczność przeprowadzonej optymalizacji komponentów.
+
+Jednocześnie potwierdzono, że dalsze zwiększanie pojemności modelu jest nieefektywne. Konfiguracja 512/512/1024 (33,35 mln parametrów) skutkowała spadkiem CIDEr do 79,05 oraz ponad dwukrotnym wydłużeniem czasu inferencji (6024 ms), co wskazuje na zjawisko przeuczenia (\gls{gls:overfitting}) i utratę zdolności generalizacji.
+
+\subsubsection{Ewaluacja architektur RNN: LSTM vs. GRU}
+\label{rozzdzial:eksperymenty_dotyczace_sieci_rnn}
+Trzecia faza polegała na ewaluacji sieci GRU jako alternatywy dla LSTM w \textit{komponencie RNN}. Celem było zbadanie, czy zastosowanie architektury o mniejszej złożoności obliczeniowej pozwoli na zwiększenie efektywności przy zachowaniu porównywalnej jakości. Eksperymenty bazowały na optymalnej konfiguracji zidentyfikowanej w poprzednich fazach. Użyto sieć szkieletową Xception, osadzenia GloVe oraz konkatenację do fuzji multimodalnej.
+
+Przeprowadzono optymalizację dekodera GRU przy stałym rozmiarze 256 neuronów \textit{komponentu RNN i adaptacyjnego}. Najwyższą jakość (CIDEr: 82,19; SPICE: 15,76) uzyskano dla konfiguracji 256/256/256. W odróżnieniu od rezultatów dla LSTM, dalsze zwiększanie rozmiaru \textit{komponentu predykcji słów} do 512 skutkowało pogorszeniem wyniku (CIDEr: 81,41), co sugeruje niższą optymalną złożoność dekodera GRU w badanej architekturze.
+
+\input{rezultaty/warstwy/results_gru}
+Bezpośrednie porównanie optymalnych modeli GRU i LSTM wskazuje na kompromis pomiędzy skutecznością a efektywnością obliczeniową. Model LSTM uzyskał marginalnie wyższe wyniki jakościowe (przewaga o 0,3 CIDEr i 0,32 SPICE). Jednakże model GRU okazał się znacznie bardziej efektywny, posiadał o 2,12 mln mniej parametrów i generował podpisy w czasie krótszym o 989 ms. Ta przewaga jest bezpośrednią konsekwencją prostszej struktury wewnętrznej komórki GRU.
+
+Wyniki te można tłumaczyć specyfiką zadania generowania podpisów, gdzie przetwarzane sekwencje są relatywnie krótkie, mają typowo mniej niż 50 tokenów. W takich warunkach złożone mechanizmy bramkowania LSTM, zaprojektowane do modelowania zależności długoterminowych, nie oferują istotnej przewagi nad uproszczoną architekturą GRU, która zapewnia wyższą efektywność obliczeniową.
+
+Wybór architektury zależy zatem od priorytetów aplikacyjnych. W scenariuszach wymagających maksymalizacji metryk ilościowych, LSTM pozostaje rozwiązaniem referencyjnym. Jeżeli kluczowe są szybkość inferencji i redukcja zapotrzebowania na zasoby, jak w systemach czasu rzeczywistego, GRU stanowi konkurencyjną alternatywę.
+
+\subsubsection{Analiza jakościowa i lingwistyczna}
+Ocenę ilościową uzupełniono o analizę jakościową i lingwistyczną. W Tabeli~\ref{tab:poprawne_podpisy} przedstawiono przykłady poprawnych podpisów uzyskanych przez optymalny model z siecią Xception oraz osadzeniami GloVe dla obrazów z Rysunku~\ref{fig:poprawne_podpisy_fig}. Charakteryzują się one poprawnością gramatyczną i wysoką zgodnością semantyczną z zawartością obrazu.
+\input{rezultaty/warstwy/poprawne_podpisy/poprawne_podpisy}
+\input{rezultaty/warstwy/poprawne_podpisy/poprawne_podpisy_fig}
+
+\input{rezultaty/warstwy/blednie_przewidziane_podpisy/bledne_podpisy}
+\input{rezultaty/warstwy/blednie_przewidziane_podpisy/bledne_podpisy_fig}
+W Tabeli~\ref{tab:bledne_podpisy} zaprezentowano przykłady błędnie wygenerowanych podpisów. Analiza wykazała, że błędne fragmenty często korelują z wysoką frekwencją występowania danych sformułowań w zbiorze treningowym, co wskazuje na tendencyjność modelu wynikającą z dystrybucji danych treningowych. Przykładowo, dla Rysunku~\ref{fig:bledne_podpisy_d}, błędny fragment "with people standing" zawiera często występujące bigramy ("with people": 1328 wystąpień; "people standing": 2740 wystąpień). Podobne zjawisko zaobserwowano dla pozostałych przykładów.
+
+Analiza zasobu leksykalnego pozwoliła zidentyfikować kolejną przyczynę błędów. Rozmiar słownika treningowego wynosił 26335 unikalnych słów. W zbiorze testowym zidentyfikowano 7197 unikalnych słów, z czego 503 występowały wyłącznie w zbiorze testowym. Ponieważ model operuje wyłącznie na słowniku treningowym, obiekty lub akcje opisane za pomocą tych 503 słów nie mogły zostać poprawnie zidentyfikowane i wystąpił problem słów OOV.
+
+Analiza częstości bigramów przedstawiona w Tabeli~\ref{tab:bledne_podpisy} potwierdza, że model wykazuje tendencję do wykorzystywania struktur językowych dominujących w danych uczących. Może to prowadzić do sytuacji, w której wyuczony model językowy dominuje nad sygnałem wizualnym, skutkując generowaniem poprawnych gramatycznie, lecz nieadekwatnych semantycznie podpisów.
+
+\subsection{Wyniki dla architektury wstrzykiwania wstępnego}
+W tej części przedstawiono wyniki dla architektury wstrzykiwania wstępnego zgodnie z scenariuszem badawczym w Sekcji~\ref{sekcja:scenariusz_badawczy_arch_wstrzykiwaia_wstepnego}. W modelu tym wektor cech obrazu inicjalizuje stan ukryty $\mathbf{h_{t=0}}$ oraz stan komórki $\mathbf{c_{t=0}}$ sieci LSTM. Badaniom poddano wpływ zastosowanej sieci szkieletowej, rozmiaru stanu ukrytego dekodera LSTM oraz szerokości wiązki $k$ w algorytmie przeszukiwania wiązkowego.
+
+\subsubsection{Wpływ sieci szkieletowej i rozmiaru stanu ukrytego LSTM}
+\input{rezultaty/warstwy/beam_search/lstm_warstwa_ukryta_siec_szkieletowa_wstrzykiwanie_wstepne}
+W Tabeli~\ref{tab:lstm_warstwa_ukryta_siec_szkieletowa_wstrzykiwanie_wstepne} przedstawiono uśrednione wyniki CIDEr dla różnych architektur i rozmiarów stanu ukrytego LSTM (256, 512, 1024). Analiza danych wskazuje, że rozmiar 512 jest optymalny dla większości badanych sieci. Architektury Densenet161, Densenet121 generalnie uzyskiwały lepsze wyniki przy większych rozmiarach 512 lub 1024. Model Resnet152 wykazał wysoką wrażliwość na ten hiperparametr, osiągając optimum przy 512 i notując spadki dla 256 i 1024. Densenet161 i Densenet201 konsekwentnie poprawiały wyniki wraz ze wzrostem rozmiaru warstwy ukrytej.
+
+\input{rezultaty/warstwy/beam_search/rezultaty_wstrzykiwanie_wstepne}
+Szczegółowe wyniki badań w Tabeli~\ref{tab:rezultaty_wstrzykiwanie_wstepne} wskazują, że najwyższą skuteczność według CIDEr osiągnął model Resnet152 z rozmiarem stanu ukrytego 512. Model Densenet201 z rozmiarem LSTM równym 1024 wykazał konkurencyjną skuteczność przy mniejszej liczbie parametrów w porównaniu do Resnet152.
+
+Porównując rodziny architektur, modele Resnet, mimo większej liczby parametrów, konsekwentnie osiągały lepsze wyniki niż Densenet. Resnet152 przewyższa Densenet201, stosując mniejszy stan ukryty LSTM. Może to wskazywać, że głębsza architektura i połączenia rezydualne w Resnet są korzystniejsze w modelowaniu złożonych cech wizualnych dla tej architektury niż połączenia gęste w Densenet.
+
+\subsubsection{Wpływ szerokości wiązki}
+\input{rezultaty/warstwy/beam_search/szerokosc_wiazki_siec_szkieletowa_wstrzykiwanie_wstepne}
+W Tabeli~\ref{tab:szerokosc_wiazki_siec_szkieletowa_wstrzykiwanie_wstepne} przedstawiono uśrednione wyniki CIDEr dla szerokości wiązki $k\in \{1, 2, 3, 5\}$ w algorytmie przeszukiwania wiązkowego. Wpływ tego parametru jest zależny od architektury modelu. Model Densenet201 uzyskał najwyższy wynik (50,02) dla $k=2$. Dla większości architektur szerokość $k=2$ okazała się optymalna lub bliska optymalnej, co sugeruje, że zwiększanie przestrzeni przeszukiwania powyżej tej wartości nie przynosi znaczącej poprawy jakości, a zwiększa koszt obliczeniowy. 
+
+
+\subsubsection{Analiza jakościowa i ograniczenia metryk ewaluacyjnych}
+\input{rezultaty/warstwy/beam_search/porownanie_bledne_poprawne_wstrzykiwanie_wstepne}
+W Tabeli~\ref{tab:porownanie_bledne_poprawne_wstrzykiwanie_wstepne} porównano podpisy wygenerowane przez modele Densenet201 i Resnet152 do obrazów na Rysunku~\ref{fig:porownanie_bledne_poprawne_wstrzykiwanie_wstepne}). Analiza jakościowa ujawniła istotną rozbieżność pomiędzy percepcyjną jakością podpisów a wartościami metryk ewaluacji automatycznej.
+
+\input{rezultaty/warstwy/beam_search/niski_cider_poprawny_podpis_wstrzykiwanie_wstepne}
+Tabela~\ref{tab:niski_cider_poprawny_podpis_wstrzykiwanie_wstepne} ilustruje przypadki, gdzie podpisy trafnie oddają semantykę obrazu, mimo niskich wyników CIDEr. Wskazuje to na ograniczenia metryk ilościowych, faworyzujących leksykalne podobieństwo do podpisów referencyjnych, co nie zawsze koreluje z ludzką percepcją trafności. Podkreśla to konieczność stosowania holistycznego podejścia do ewaluacji, łączącego metryki ilościowe z oceną jakościową.
+
+Manualna analiza wykazała również problemy z poprawnością gramatyczną, w szczególności błędy w stosowaniu przedimków (np. "the", "a") w języku angielskim, co wskazuje na ograniczenia modeli w zakresie precyzyjnego modelowania złożonych reguł gramatycznych.

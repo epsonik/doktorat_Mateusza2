@@ -1,0 +1,29 @@
+\begin{figure}
+\caption{Przykład wyników działania operacji average pooling i max
+pooling z maską 2x2 i krokiem stride =2 na obrazie wynikowym o wy-
+miarach 4x4}\label{tab:avg_pooling_vs_max}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{ccc}  
+
+\begin{tabular}[c]{@{}l@{}} \textbf{(a)} Wynikowa mapa aktywacji po\\ operacji splotowej, o rozmiarze 4x4. \end{tabular} & \begin{tabular}[c]{@{}l@{}} \textbf{(b)} Redukcja przez\\ maksimum\end{tabular} & \begin{tabular}[c]{@{}l@{}} \textbf{(c)} Redukcja przez\\ uśrednianie\end{tabular} \\
+\begin{tabular}{|c|c|c|c|} 
+\hline
+1 & 3 & 2 & 4 \\ \hline
+5 & 6 & 1 & 2 \\ \hline
+7 & 2 & 3 & 6 \\ \hline
+4 & 3 & 5 & 1 \\ \hline
+\end{tabular} &
+\begin{tabular}{|c|c|} 
+\hline
+6 & 4 \\\hline
+7 & 6 \\\hline
+\end{tabular} &
+\begin{tabular}{|c|c|} 
+\hline
+3.75 & 2.25 \\\hline
+4 & 3.75 \\ \hline
+\end{tabular}
+
+\end{tabular}}
+
+\end{figure}

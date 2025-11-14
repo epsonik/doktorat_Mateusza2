@@ -1,0 +1,576 @@
+\chapter{Podstawowe elementy architektury systemu}
+\label{rozdzial:elementy_skladowe}
+\section{Architektura koder-dekoder w zadaniach multimodalnych}
+Automatyczne generowanie podpisów do obrazów to zadanie polegające na przekształceniu danych wizualnych w sekwencję tekstową o zmiennej długości. Podstawowym i szeroko zaadaptowanym podejściem do tego problemu jest architektura koder-dekoder, której schemat przedstawiono na Rysunku~\ref{fig:prosta_ilustracja_koder_dekoder}.
+\input{wykresy/prosta_ilustracja_koder_dekoder}
+
+Struktura ta składa się z dwóch wyspecjalizowanych i współpracujących modułów. Koder przekształca obraz wejściowy w zwartą, numeryczną reprezentację semantyczną, zwaną wektorem kontekstu. Wektor ten agreguje kluczowe informacje wizualne, takie jak zidentyfikowane obiekty, ich atrybuty oraz wzajemne relacje przestrzenne. Ważną funkcją kodera jest również przekształcenie niesekwencyjnej, siatkowej struktury obrazu w format akceptowalny przez sekwencyjny dekoder. Dekoder, bazując na reprezentacji dostarczonej przez koder, generuje iteracyjnie sekwencję słów składających się na podpis. W zaawansowanych wariantach tej architektury proces ten jest wspomagany mechanizmem uwagi (\gls{gls:attention-mechanism}), który pozwala dekoderowi na selektywne skupianie się na najbardziej relewantnych regionach obrazu na każdym kroku generowania tekstu.
+
+W kanonicznej implementacji tej architektury funkcję kodera pełni sieć szkieletowa wyspecjalizowana w ekstrakcji hierarchicznych cech wizualnych. Rolę dekodera odgrywa natomiast rekurencyjna sieć neuronowa, posiadająca naturalną zdolność do modelowania zależności w danych sekwencyjnych.
+
+\section{Koder wizualny -- ekstrakcja cech z obrazu}
+\label{sekcja:koder}
+Koder wizualny w architekturze do automatycznego generowania podpisów do obrazów jest odpowiedzialny za transformację obrazu z przestrzeni pikseli do wektorowej reprezentacji semantycznej. Proces ten, określany mianem ekstrakcji cech, jest realizowany przez sieć szkieletową. Wynikiem jej działania jest mapa cech – macierz zbudowana z wektorów cech, z których każdy opisuje określony region przestrzenny obrazu. Jakość tej reprezentacji jest czynnikiem krytycznym, determinującym precyzję i trafność generowanego podpisu, ponieważ musi ona skutecznie kodować złożone informacje o zawartości sceny w formie interpretowalnej przez dekoder językowy.
+
+\subsection{Splotowe sieci neuronowe}
+\label{rozdzial:sieci_splotowe}
+
+Splotowe sieci neuronowe stanowią klasę modeli wykorzystywanych jako kodery w zadaniach automatycznego generowania podpisów do obrazów. Ich architektura inspirowana biologicznym systemem wzrokowym, jest zoptymalizowana do przetwarzania danych o strukturze siatki, takich jak obrazy cyfrowe. Zdolność do hierarchicznego uczenia się cech wizualnych – od prostych krawędzi po złożone obiekty – pozwala na transformację danych wejściowych z przestrzeni pikseli w gęstą, semantycznie bogatą reprezentację wektorową~\cite{LeCun2015Deep}.
+
+Typowa architektura CNN składa się z sekwencji bloków obliczeniowych, które sukcesywnie redukują wymiarowość przestrzenną danych, zwiększając jednocześnie głębokość (liczbę kanałów) mapy cech. Dzięki temu kodowane są coraz bardziej abstrakcyjne informacje. Ogólny schemat tej architektury zilustrowano na Rysunku~\ref{fig:schemat_cnn}.
+\input{wykresy/schemat_cnn}
+
+Bloki obliczeniowe CNN zbudowane są z warstw splotowych (\gls{gls:convolutional-layer}), funkcji aktywacji oraz warstw agregacji wymiarów (\gls{gls:pooling-layer}). Warstwy splotowe wykonują operację dyskretnego splotu, która jest istotą działania sieci CNN. Polega ona na przesuwaniu niewielkiej macierzy wag, określanej filtrem, po całej powierzchni obrazu wejściowego. Dla każdego położenia filtra obliczany jest iloczyn skalarny między jego wartościami a odpowiadającym mu fragmentem obrazu. Wyniki tych operacji tworzą mapę cech, która reprezentuje aktywacje dla danej cechy w różnych lokalizacjach przestrzennych. Formalnie, dla obrazu wejściowego $\mathbf{I}$ o elementach reprezentujących stopnie jasności pikseli $I(i,j)$ oraz filtra $\mathbf{K}$ operację splotu mapy cech $\mathbf{Y}$ można zdefiniować jako~\cite{goodfellow2017deep, Osowski2018SieciNeuronowe}:
+\begin{equation}
+Y(i, j) = \sum I_{i, j} \odot K 
+\end{equation}
+gdzie \gls{symb:odot} to mnożenie element po elemencie.
+
+Zastosowanie nieliniowej funkcji aktywacji, następujące bezpośrednio po operacji splotu i wpływa na zdolność modelu do aproksymacji złożonych zależności w danych. W splotowych sieciach neuronowych dominującym wyborem jest funkcja \gls{relu}, której popularność wynika z niskiej złożoności obliczeniowej oraz skuteczności w przeciwdziałaniu problemowi zanikającego gradientu~\cite{goodfellow2017deep, Osowski2018SieciNeuronowe}. Funkcja ta jest jednak podatna na zjawisko tzw. umierających neuronów, gdzie neuron w trakcie uczenia staje się trwale nieaktywny, generując wyjście zerowe niezależnie od danych wejściowych~\cite{Lu2020DyingRelu}. Problem ten łagodzą warianty ReLU, takie jak Leaky ReLU czy Exponential Linear Unit (ELU))~\cite{goodfellow2017deep}. Mimo dominacji funkcji z rodziny ReLU, w pewnych zastosowaniach lub specyficznych komponentach architektur wciąż wykorzystuje się klasyczne funkcje, takie jak funkcja sigmoidalna~\cite{Han1995Sigmoid}.
+
+
+Celem warstwy agregacji (\gls{gls:pooling-layer}) jest progresywna redukcja przestrzennej rozdzielczości mapy cech. Pełni dwie funkcje, po pierwsze zmniejsza liczbę parametrów i złożoność obliczeniową modelu oraz wprowadza lokalną niezmienność na translacje (\gls{gls:translation-invariance}), czyli sprawia, że sieć jest mniej wrażliwa na niewielkie zmiany położenia lub kształtu obiektów na obrazie. Zwiększa to odporność całej sieci na niewielkie przesunięcia obiektów. 
+
+W praktyce dominuje strategia agregacji maksimum~\gls{gls:max-pooling} oraz agregacji średnią (\gls{gls:average-pooling})~\cite{Gu2018RecentAdvances}. Agregacja maksimum polega na wyborze maksymalnej wartości aktywacji w predefiniowanym sąsiedztwie. Mechanizm ten wydobywa najbardziej wyraźne cechy, zachowując informację o ich obecności, niezależnie od dokładnej lokalizacji w danym oknie. Agregacja średnią natomiast uśrednia wszystkie aktywacje w oknie. Skutkuje to wygładzeniem reprezentacji i zmniejszeniem jej wariancji, zachowując informację o ogólnej intensywności cechy na danym obszarze.
+
+Finalnym produktem kodera opartego na sieci szkieletowej z CNN jest zatem wielowymiarowa mapa cech, która stanowi wejście dla modułu dekodera.
+
+\subsection{Sieci szkieletowe}
+\label{rozdzial:reprezentacja_obrazu}
+\input{tabele/zestawienie_cnn}
+Sieć szkieletowa (\gls{gls:backbone-network}) to głęboka splotowa sieć neuronowa, pełniąca funkcję uniwersalnego ekstraktora cech wizualnych. Jej fundamentalną cechą jest wstępne uczenie (pre-training) realizowane w ramach paradygmatu uczenia transferowego (\gls{gls:transfer-learning}). Proces ten polega na treningu sieci w zadaniu klasyfikacji na wielkoskalowym, zróżnicowanym zbiorze danych, najczęściej referencyjnym ImageNet. Celem wstępnego uczenia nie jest optymalizacja metryk klasyfikacyjnych, lecz wyuczenie wszechstronnej, hierarchicznej reprezentacji cech wizualnych. W rezultacie niższe warstwy sieci specjalizują się w detekcji prostych struktur, takich jak krawędzie i tekstury, które w warstwach głębszych są agregowane do semantycznie złożonych konceptów i obiektów. Wagi tak wytrenowanego modelu stanowią fundament dla bardziej złożonych architektur, umożliwiając ich efektywną adaptację do docelowych zadań przy znacznie zredukowanym zapotrzebowaniu na dane treningowe.
+
+Do kanonu architektur sieci szkieletowych, które wywarły największy wpływ na rozwój dziedziny, należą VGG w wersjach VGG16 i VGG19, Inception, w tym InceptionV2 i InceptionV3, Resnet50, Resnet101 i Resnet152, Densenet jak Densenet121 i Densenet201, Xception oraz Mobilenet. Architektury te zostaną przedstawione w porządku chronologicznym, pokazując ewolucję od prostszych, głębokich sieci do bardziej złożonych i zoptymalizowanych struktur.
+
+W celu zilustrowania różnic w skuteczności i charakterystyce poszczególnych architektur, w Tabeli~\ref{tab:zestawienie_cnn} przedstawiono porównanie ich wydajności w standardowym zadaniu klasyfikacji na zbiorze ImageNet, wraz z rozmiarem wektora cech generowanego przez każdą z nich.
+
+W Tabeli~\ref{tab:zestawienie_cnn} kolumna sieć szkieletowa identyfikuje konkretną, wstępnie wytrenowaną sieć szkieletową. Rozmiar wektora cech obrazu określa wymiar wektora cech z ostatniej warstwy sieci szkieletowej przed blokiem klasyfikacyjnym. TOP-1 mierzy odsetek przypadków, w których predykcja o najwyższym prawdopodobieństwie jest zgodna z klasą referencyjną, natomiast dokładność TOP-5 określa odsetek przypadków, w których prawidłowo nadana klasa znajduje się w zbiorze pięciu najbardziej prawdopodobnych predykcji.
+
+Analiza danych wskazuje, że architektury takie jak Xception 79,0\% TOP-1 oraz Resnet152V2 78,0\% TOP-1 wykazują najwyższą skuteczność klasyfikacji, co potwierdza efektywność zaawansowanych rozwiązań topologicznych, takich jak sploty odseparowane wgłębnie (\gls{gls:depthwise-separable-convolution}) i połączenia rezydualne (\gls{gls:residual-connection}). Po drugie, widoczny jest kompromis między dokładnością a wydajnością obliczeniową – modele z rodziny Mobilenet charakteryzują się najniższą precyzją, co jest celowym zabiegiem projektowym w celu ich optymalizacji dla środowisk o ograniczonych zasobach. Widać także ewolucję architektur, starsze sieci VGG, mimo generowania najdłuższego wektora cech wynoszącego 4096, osiągają niższą skuteczność niż nowsze modele, jak Resnet czy Xception, które produkują krótszy wektor o długości 2048. Świadczy to o tym, że innowacje w topologii sieci mają większy wpływ na jej zdolności reprezentacyjne niż sama ekspansja przestrzeni cech.
+
+
+\subsubsection{VGG}
+Architektura VGG (Visual Geometry Group)~\cite{Simonyan15VeryDeep} ustanowiła paradygmat projektowy, w którym głębokość sztucznej sieci neuronowej jest czynnikiem warunkującym jej skuteczność w przetwarzaniu obrazów. W przeciwieństwie do wcześniejszych modeli, architektura VGG udowodniła, że skuteczność modelu można systematycznie zwiększać poprzez stosowanie prostej, jednorodnej, ale bardzo głębokiej struktury.
+
+Podstawowy moduł obliczeniowy architektury VGG składa się z sekwencji dwóch lub trzech warstw splotowych z filtrami 3x3, gdzie każda jest aktywowana funkcją ReLU. Zasadniczą cechą tej koncepcji jest zastąpienie pojedynczych warstw o dużych polach recepcyjnych (np. 7x7) kaskadą warstw z małymi filtrami. Taka dekompozycja, przy zachowaniu tożsamego efektywnego pola recepcyjnego, umożliwia pogłębienie nieliniowości modelu oraz znaczącą redukcję liczby parametrów.
+
+Strukturę sieci definiuje naprzemienne stosowanie bloków splotowych i warstw redukcji wymiaru. Redukcja jest realizowana przez operację agregacji maksimum w oknie 2x2 z krokiem 2. Operacja ta pełni dwie funkcje. Po pierwsze, zmniejsza rozdzielczość przestrzenną map cech, co prowadzi do redukcji liczby parametrów i zapotrzebowania na zasoby obliczeniowe. Po drugie, wprowadza do sieci niezmienniczość na translacje ponieważ w danym fragmencie obrazu zachowywana jest jedynie informacja o maksymalnej aktywacji neuronu. Taki schemat konstrukcyjny prowadzi do ekstrakcji cech hierarchicznych. 
+
+\subsubsection{Inception}
+W odpowiedzi na rosnące koszty obliczeniowe głębokich, homogenicznych architektur, takich jak VGG, zaproponowano architekturę Inception (GoogLeNet)~\cite{Szegedy2014Going}. Metoda zakłada zwiększenie możliwości reprezentacji sieci poprzez konstruowanie zoptymalizowanych, poszerzonych bloków obliczeniowych, zdolnych do efektywnego przetwarzania cech w wielu skalach jednocześnie.
+
+U podstaw Inception leży zasada aproksymacji struktur rzadkich przy użyciu gęstych, łatwo dostępnych komponentów obliczeniowych. Zamiast tworzyć w pełni połączone warstwy, które są kosztowne obliczeniowo i podatne na przeuczenie, architektura wykorzystuje połączenia rzadkie. Inspiracją dla tego podejścia były badania neurobiologiczne, sugerujące, że w korze wzrokowej neurony połączone są w sposób lokalny i rozproszony. W Inception wysoce skorelowane jednostki neuronowe są grupowane, co redukuje liczbę parametrów modelu. Podejście to wspiera również niezmienniczość na translacje.
+
+Centralnym elementem architektury jest moduł Inception, który w swojej podstawowej formie składa się z czterech równoległych ścieżek przetwarzających tę samą mapę cech obrazu. Ścieżki te zawierają operacje splotu z filtrami o różnych rozmiarach (1x1, 3x3, 5x5) oraz operację redukcji przez maksimum (3x3). Taka konstrukcja pozwala sieci na jednoczesne wydobywanie zarówno cech lokalnych uchwyconych przez mniejsze filtry, jak i bardziej abstrakcyjnych uchwyconych przez większe filtry. Wyjścia ze wszystkich gałęzi są następnie konkatenowane wzdłuż wymiaru kanałów, tworząc zagregowaną reprezentację cech.
+
+Innowacją warunkującą wydajność obliczeniową, jest zastosowanie splotów 1x1 przed kosztownymi obliczeniowo splotami 3x3 i 5x5. W efekcie drastycznie zmniejsza się liczba kanałów map cech poddawanych dalszemu przetwarzaniu. Zabieg ten znacząco obniża liczbę parametrów sieci, a w efekcie umożliwia budowę głębokich sieci neuronowych optymalnych obliczeniowo.
+
+Architekturę Inception systematycznie doskonalono w kolejnych wersjach. W InceptionV2 wprowadzono mechanizm normalizacji wsadowej (\gls{gls:batch-normalization}), a sploty $5\times5$ poddano faktoryzacji, zastępując je dwiema następującymi po sobie warstwami splotowymi $3\times3 $. Koncepcję tę rozwinięto w architekturze InceptionV3~\cite{Szegedy2016RethinkingTI}, gdzie zastosowano faktoryzację asymetryczną, rozkładając sploty $n \times n$ na sekwencję splotów $1 \times n$ oraz $n \times 1$. Ponadto, w celu dalszej redukcji parametrów i mitygacji ryzyka przeuczenia, tradycyjne warstwy w pełni połączone w warstwie klasyfikacyjnej zastąpiono globalną agregacją średnią (\gls{GAP}). 
+
+\subsubsection{Resnet}
+Wraz ze wzrostem głębokości sieci neuronowych ujawnił się problem degradacji dokładności. Zjawisko to polega na nasyceniu, a następnie spadku skuteczności modelu, mimo dodawania kolejnych warstw. Trudności te wynikają w dużej mierze z problemu zanikającego gradientu, który uniemożliwia efektywną optymalizację bardzo głębokich architektur. W odpowiedzi na to wyzwanie opracowano nową klasę modeli, które wprowadzają połączenia skrótowe -- alternatywne, krótsze ścieżki dla przepływu informacji i gradientu przez sieć.
+
+Architektura Resnet (Residual Network)~\cite{He2015Deep} wprowadza mechanizm uczenia rezydualnego (\gls{gls:residual-learning}) w celu rozwiązania problemu degradacji. Zamiast aproksymować docelową funkcję $H(\mathbf{X})$, blok rezydualny uczy się funkcji rezydualnej $F(\mathbf{X})$, zdefiniowanej jako $F(\mathbf{X}) := H(\mathbf{X}) - \mathbf{X}$. Oryginalne mapowanie jest następnie odzyskiwane poprzez operację sumowania element po elemencie: $H(\mathbf{X}) = F(\mathbf{X}) + \mathbf{X}$. Implementacja tego rozwiązania jest realizowana za pomocą połączenia skrótowego, które omija co najmniej jedną warstwę i dodaje wejście bloku $\mathbf{X}$ bezpośrednio do jego wyjścia $F(\mathbf{X})$. Innymi słowy, uczenie rezydualne oznacza, że sieć neuronowa nie uczy się bezpośrednio całej, skomplikowanej transformacji danych wejściowych w wyjściowe. Zamiast tego, uczy się "reszty" – czyli różnicy między tym, co sieć powinna zwrócić na wyjściu, a tym, co otrzymała na wejściu. Takie podejście jest znacznie łatwiejsze dla sieci, zwłaszcza gdy pożądana zmiana jest niewielka. Łatwiej jest nauczyć się małej korekty niż całej transformacji od zera.
+
+Podstawowym elementem konstrukcyjnym sieci jest blok rezydualny, składający się z dwóch lub więcej warstw splotowych z nieliniową funkcją aktywacji oraz równoległego połączenia skrótowego. W zależności od głębokości sieci stosuje się różne warianty bloków. W płytszych architekturach, takich jak Resnet18 i Resnet34, wykorzystywane są bloki z dwiema warstwami splotowymi $3\times3$. W głębszych modelach, jak Resnet50, Resnet101 czy Resnet152, wprowadza się zoptymalizowane bloki typu "wąskie gardło". Składają się one z sekwencji trzech warstw splotowych o wymiarach filtrów $1\times1$, $3\times3$ i $1\times1$, celem budowy jeszcze głębszych i wydajniejszych modeli.
+
+\subsubsection{Densenet}
+Architektura Densenet (Dense Convolutional Network)~\cite{huang2017densely} stanowi ewolucję idei połączeń skrótowych, poprzez optymalizację przepływu informacji i gradientu w sieci. Zamiast sumować cechy z poprzedniego bloku jak w Resnet, Densenet wprowadza topologię, w której każda warstwa jest połączona ze wszystkimi poprzedzającymi ją warstwami. 
+
+Istotą architektury Densenet jest blok gęsty, wewnątrz którego kolejne warstwy otrzymują jako wejście konkatenację map cech wygenerowanych przez wszystkie poprzednie warstwy.  Taka struktura promuje ponowne wykorzystanie cech, ponieważ cechy niskiego poziomu z początkowych warstw są bezpośrednio dostępne dla warstw głębszych. Nie tylko łagodzi to problem zanikającego gradientu, ale również zwiększa efektywne wykorzystanie parametrów w sieci. Modele Densenet osiągają wysoką skuteczność przy mniejszej liczbie parametrów niż porównywalne architektury Resnet. Parametrem definiującym wydajność architektury Densenet jest współczynnik wzrostu, który określa liczbę nowych map cech generowanych przez każdą warstwę w bloku. Innymi słowy, każda warstwa dodaje do globalnej wiedzy sieci jedynie niewielką ilość nowych informacji, co redukuje liczbę parametrów.
+
+Ponieważ operacja konkatenacji sukcesywnie zwiększa liczbę kanałów, pomiędzy blokami gęstymi umieszczane są warstwy przejściowe. Składają się one z warstwy normalizacji wsadowej, warstwy splotowej $1\times1$, której celem jest redukcja liczby map cech oraz warstwy agregacji średnią $2\times2$ z krokiem 2, co zmniejsza wymiary przestrzenne.
+
+\subsubsection{Xception}
+Rozwój architektur Inception i Resnet pokazał znaczenie rozwoju topologii sieci w poprawie jej skuteczności. Kolejnym krokiem ewolucyjnym było zakwestionowanie samej operacji splotu jako monolitycznego bloku. Architektury Xception i Mobilenet opierają się na hipotezie, że mapowanie korelacji przestrzennych w obrębie jednego kanału oraz korelacji pomiędzy kanałami można od siebie całkowicie oddzielić. Doprowadziło to do opracowania i popularyzacji splotów odseparowanych wgłębnie (\gls{gls:depthwise-separable-convolutions}), które stały się podstawą dla nowej generacji wydajnych obliczeniowo modeli.
+
+Architektura Xception~\cite{Chollet2017Xception} rozwija koncepcję faktoryzacji splotów znaną z Inception. Zamiast dzielić mapy cech na kilka gałęzi jak w module Inception, Xception proponuje pełną dekompozycję standardowej operacji splotu na dwa następujące po sobie etapy.
+
+Pierwszy z nich to splot wgłębny (\gls{gls:depthwise-convolution}), w którym na każdym kanale wejściowym mapy cech operuje jeden, niezależny filtr przestrzenny. Krok ten modeluje wyłącznie korelacje przestrzenne wewnątrz poszczególnych kanałów, bez mieszania informacji pomiędzy nimi. Następnie, w drugim etapie, wyjście splotu wgłębnego jest przetwarzane przez splot punktowy zbudowany z filtrów o wymiarze $1\times1$. Zadaniem tego kroku jest liniowa kombinacja wyjść z poprzedniej operacji w celu modelowania korelacji międzykanałowych i utworzenia nowych map cech.
+
+Struktura sieci Xception to stos 36 warstw splotowych, zorganizowanych w 14 modułów, które tworzą bazę do pozyskiwania cech obrazu. Z wyjątkiem pierwszego i ostatniego modułu, wszystkie pozostałe są połączone za pomocą połączeń rezydualnych. Architektura została podzielona na przepływ wejściowy, który przetwarza dane wejściowe, przepływ środkowy, składający się z ośmiokrotnego powtórzenia bloku splotów odseparowanych wgłębnie, oraz przepływ wyjściowy, który dokonuje końcowych operacji splotowych i klasyfikacji. 
+
+Kompozycja dwuetapowa jest znacznie bardziej wydajna niż standardowy splot, który jednocześnie przetwarza wymiary przestrzenne i kanałowe. Prowadzi to do redukcji zarówno liczby parametrów, jak i kosztu obliczeniowego. Architektura Xception to w istocie liniowy stos modułów opartych na splotach odseparowanych wgłębnie, uzupełniony o połączenia rezydualne, co upraszcza trening, zwłaszcza w przypadku głębokich sieci neuronowych.
+
+\subsubsection{Mobilenet}
+Architektura Mobilenet~\cite{Howard2017Mobilenets} podobnie jak Xception wykorzystuje sploty odseparowane wgłębnie, jednakże celem podczas jej projektowania była wydajność w środowiskach o ograniczonych zasobach obliczeniowych, takich jak urządzenia mobilne i systemy wbudowane, a nie wysoka skuteczność. 
+
+Struktura sieci Mobilenet to sekwencja warstw zbudowanych z splotów odseparowanych wgłębnie, gdzie każda została uzupełniona o normalizację wsadową i funkcję aktywacji ReLU. Aby umożliwić elastyczne dostosowanie modelu do konkretnych wymagań sprzętowych, wprowadzono dwa parametry. Mnożnik szerokości kontroluje liczbę kanałów w każdej warstwie, a mnożnik rozdzielczości skaluje rozdzielczość obrazu wejściowego. Oba parametry pozwalają na proporcjonalną redukcję wymiarów całej sieci oraz zmniejszenie kosztów obliczeniowych.
+
+Kolejne wersje architektury wprowadzały dalsze usprawnienia. Model MobilenetV2 zaimplementował odwrócone bloki rezydualne oraz liniową warstwę typu wąskie gardło (\gls{gls:bottleneck}). Dzięki temu usprawniono przepływ gradientu, co zapobiega utracie informacji w warstwach o małej liczbie wymiarów. Z kolei w MobilenetV3 wykorzystano techniki przeszukiwania architektury neuronowej w celu automatycznego dostosowania jej topologii do konkretnych ograniczeń sprzętowych. 
+
+\subsection{Format reprezentacji danych wizualnych dla dekodera}
+\input{zdjecia/regiony_vs_siatka}
+Przetworzenie obrazu przez sieć szkieletową skutkuje wygenerowaniem mapy cech. Jest to tensor stanowiący wektorową reprezentację danych wejściowych, w którym każdy wektor cech odpowiada określonemu fragmentowi obrazu, wyznaczonemu przez regularną siatkę przestrzenną~\cite{Ma2023Grid, Samar2023Enhanced, Yang2024image}, co ilustruje Rysunek~\ref{fig:regiony_vs_siatka}. W architekturach koder-dekoder stosowanych do automatycznego generowania podpisów do obrazów wyróżnia się dwa główne podejścia do przetwarzania tej reprezentacji~\cite{Zhao2024RegionFeatures, Yan2024GridFeatures}.
+
+Pierwsze podejście polega na agregacji całej mapy cech do pojedynczego wektora o stałej długości. Operację tę realizuje się przez GAP lub spłaszczanie. W metodzie GAP każda mapa aktywacji o wymiarach $h\times w$, odpowiadająca jednemu filtrowi splotowemu, jest redukowana do wartości skalarnej przez uśrednienie wszystkich jej elementów. W efekcie tensor cech o wymiarach $c\times h\times w$ jest przekształcany w wektor o długości $c$. Zaletą tej techniki jest niezmienność względem wymiarów przestrzennych danych wejściowych oraz redukcja liczby parametrów. Prowadzi to jednak do utraty jawnej informacji o relacjach przestrzennych między elementami sceny. Wynikowy wektor, choć koduje globalną semantykę obrazu, nie przechowuje wiedzy o lokalizacji poszczególnych cech. 
+
+Spłaszczanie z kolei polega na przekształceniu tensora cech w jednowymiarowy wektor poprzez konkatenację jego elementów, co skutkuje wektorem o długości $c \cdot h \cdot w$. Metoda ta zachowuje pełen zasób informacji o relacjach przestrzennych, jednak wiąże się ze znacznym kosztem obliczeniowym.
+
+Redukcja mapy cech do pojedynczego wektora ogranicza zdolność modelu do generowania bogatych semantycznie podpisów, zwłaszcza tych, które wymagają zrozumienia wzajemnych interakcji i układu obiektów. W rezultacie generowane podpisy koncentrują się na klasyfikacji sceny lub listowaniu jej głównych komponentów bez analizy ich kontekstu przestrzennego.
+
+Alternatywne podejście, określane mianem cech siatkowych, zakłada przekazanie do dekodera pełnej mapy cech z ostatniej warstwy splotowej kodera~\cite{Ma2023Grid, Samar2023Enhanced}. W tym ujęciu wektory cech odpowiadają fragmentom obrazu narzuconym przez strukturę sieci neuronowej, a nie regionom istotnym semantycznie. W celu przezwyciężenia tego ograniczenia opracowano techniki ekstrakcji cech regionalnych (region features). W tym celu detektor obiektów (np. YOLO, Faster R-CNN) identyfikuje obiekty na obrazie. Następnie dla każdego z nich ekstrahowany jest odrębny wektor cech~\cite{Terven2023Yolo, Ren2015Faster}.
+
+Zarówno cechy siatkowe, jak i regionalne dostarczają reprezentacji o znacznie większej pojemności informacyjnej niż pojedynczy wektor globalny~\cite{Wang2022endtoendtransformerbasedmodel}. Ich efektywne wykorzystanie wymaga jednak od dekodera zdolności do selektywnego skupiania się na najbardziej relewantnych wektorach cech w poszczególnych krokach generowania sekwencji wyjściowej. Postulat ten stał się bezpośrednią motywacją do opracowania i integracji mechanizmów uwagi w architekturach do automatycznego generowania podpisów do obrazów, które zostaną omówione w Sekcji~\ref{rozdzial:mechanizm_uwagi}.
+
+\section{Dekoder językowy--generowanie sekwencji tekstowych}
+\label{sekcja:dekoder}
+Po etapie wydobywania cech wizualnych w koderze, zadanie syntezy zdania w języku naturalnym przejmuje dekoder. Jest to model językowy, którego zadaniem jest translacja wektorowej reprezentacji obrazu na zdanie. Predykcja kolejnego słowa w zdaniu ma charakter sekwencyjny, a każdy kolejny token jest uwarunkowany wejściową reprezentacją wizualną (kontekstem wizualnym) oraz sekwencją tokenów wygenerowanych w poprzednich krokach (kontekst językowy), reprezentowaną przez stan sieci LSTM. Warunkiem koniecznym dla przetwarzania lingwistycznego jest numeryczna reprezentacja słów w postaci gęstych wektorów liczbowych, określanych mianem osadzeń (embeddings) po ich uprzednim wstępnym przetwarzaniu.
+
+Niniejsza sekcja przedstawia technologie składowe architektury dekodera, począwszy od metod reprezentacji słów, a skończywszy na modelach sieci neuronowych przeznaczonych do przetwarzania danych sekwencyjnych.
+
+
+
+\subsection{Wstępne przetwarzanie danych}
+\label{rozdzial:wstepne_przetwarzanie}
+Efektywne wykorzystanie surowych danych tekstowych w modelach uczenia maszynowego wymaga wieloetapowego procesu przetwarzania wstępnego (\gls{gls:preprocessing}), którego celem jest normalizacja, oczyszczenie i strukturyzacja korpusu tekstowego.
+
+Proces ten rozpoczyna się od normalizacji wielkości liter, aby zredukować rozmiar słownika używanego w sieci. Następnie przeprowadzana jest \gls{gls:tokenizacja}, czyli segmentacja ciągów znaków na fundamentalne jednostki analizy – tokeny.
+
+Kolejnym krokiem jest normalizacja morfologiczna. Stosuje się tu lematyzację, czyli proces sprowadzania form fleksyjnych wyrazu do jego formy podstawowej, zwanej lematem~\cite{Siino2024Preprocessing}. Lematyzacja, w odróżnieniu od uproszczonego stemingu, opiera się na analizie morfologicznej i kontekstowej, co zapewnia poprawność lingwistyczną wyniku~\cite{Wolinski2019AutomatycznaAnalizaSkladnikowa}.
+
+Ostatnim etapem jest redukcja szumu informacyjnego. Obejmuje ona eliminację znaków interpunkcyjnych oraz filtrację słów funkcyjnych (\gls{gls:stop-words}) – powszechnie występujących jednostek o niskiej wartości semantycznej, takich jak "i", "w", "się" dla języka polskiego czy "and", "a", "the" dla angielskiego~\cite{Fox1989StopWords, Sarica2021StopWords}. Wynikiem tych operacji jest oczyszczony korpus tekstowy oraz słownik unikalnych lematów, stanowiące podstawę do numerycznej reprezentacji tekstu.
+
+
+\subsection{Reprezentacja słów}
+\label{rozdzial:reprezentacja_slow}
+Przetwarzanie tokenów przez sieci neuronowe wymaga ich konwersji do postaci numerycznej. Współczesne metody reprezentacji słów klasyfikuje się w ramach dwóch głównych paradygmatów. Pierwszy z nich, oparty na zliczaniu, wykorzystuje globalne statystyki współwystępowania słów w całym korpusie. Drugi, predykcyjny, polega na iteracyjnym uczeniu modelu w zadaniu przewidywania słów w ich lokalnym kontekście semantycznym. 
+
+
+\subsubsection{Reprezentacja dyskretna}
+Metody te tworzą wektory, których wartości są bezpośrednio wyliczane na podstawie częstotliwości występowania słów.
+
+Bazową i najbardziej intuicyjną metodą w tej kategorii jest kodowanie gorącojedynkowe (\gls{gls:one-hot-encoding}). W tym podejściu każde słowo ze zdefiniowanego słownika jest reprezentowane przez binarny wektor o długości równej liczbie słów w słowniku. Wektor ten zawiera jedną wartość "1" na pozycji odpowiadającej indeksowi danego słowa, a pozostałe jego elementy są równe "0". Reprezentacja ta cechuje się fundamentalnymi wadami. Generowane są wektory rzadkie i wysokowymiarowe, co znacząco zwiększa złożoność obliczeniową i wymagania pamięciowe modelu. Po drugie, wektory gorącojedynkowe nie niosą informacji o relacjach semantycznych między słowami.
+
+Bardziej zaawansowaną technikę z tej kategorii stanowi ważenie \gls{gls:tf-idf}. Metoda przypisuje każdemu słowu w podpisie wagę, która odzwierciedla jego istotność informacyjną.\label{sekcja:tf-idf}
+
+Częstość n-gramu (Term Frequency, (TF)) określa, jak często dany n-gram $n$ występuje w zdaniu $s$. W celu normalizacji wartość tę oblicza się jako iloraz liczby wystąpień n-gramu $n$ w zdaniu $c$ do całkowitej liczby wszystkich n-gramów w tym zdaniu:
+\begin{equation}
+    TF(n, c) = \frac{f_{n,c}}{\sum_{l} f_{l,c}},
+\end{equation}
+gdzie $f_{n,c}$ to liczba wystąpień n-gramu $n$ w zdaniu $c$, a mianownik jest sumą wystąpień wszystkich n-gramów w tym zdaniu.
+
+Odwrotna częstość zdaniowa (Inverse Document Frequency, (IDF) jest miarą informacyjności n-gramu w skali całego korpusu zdań $S$. Jej zadaniem jest obniżenie wagi n-gramów, które pojawiają się w wielu zdaniach, a podniesienie wagi tych, które są rzadkie i przez to bardziej dystynktywne dla konkretnych zdań. Wartość IDF jest obliczana jako logarytm ilorazu całkowitej liczby zdań w korpusie $m$ do liczby zdań zawierających n-gram $n$:
+\begin{equation}
+    IDF(n, S) = \log\frac{m}{|\{c \in S: n \in c\}|}.
+\end{equation}
+
+Ostateczna waga TF-IDF dla n-gramu $n$ w zdaniu $c$ w kontekście korpusu $S$ jest iloczynem obu tych miar:
+\begin{equation}
+    \text{TF-IDF}(n, c, S) = TF(n, c) \times IDF(n, S).\label{eq:tf-idf}
+\end{equation}
+W rezultacie każde zdanie jest reprezentowane jako wektor wag TF-IDF o wymiarowości równej rozmiarowi słownika. Mimo że reprezentacja ta jest bogatsza informacyjnie niż kodowanie gorącojedynkowe, nadal pozostaje wysokowymiarowa, rzadka i nie modeluje wprost relacji semantycznych, takich jak podobieństwo znaczeniowe.
+
+\subsubsection{Od reprezentacji dyskretnej do dystrybucyjnej}
+Ograniczenia reprezentacji dyskretnych przezwyciężono, implementując założenia semantyki dystrybucyjnej, ugruntowanej w hipotezie dystrybucyjnej. Zgodnie z tą hipotezą, znaczenie słowa jest determinowane przez zbiór kontekstów, w których ono występuje~\cite{Harris1954DistributionalS, Firth1957ASynopsis}. Innymi słowy, wyrazy pojawiające się w podobnych kontekstach językowych mają tendencję do posiadania zbliżonych znaczeń. Implikuje to możliwość ilościowego modelowania znaczenia słów poprzez analizę statystyk ich współwystępowania w dużych korpusach tekstowych. 
+
+Praktyczną realizacją tej idei są osadzenia słów (\gls{gls:word-embeddings}) – gęste wektory rzeczywiste o małej liczbie wymiarów, których parametry są uczone na wielkoskalowych korpusach tekstowych. Osadzenia mapują słowa na punkty w ciągłej, wielowymiarowej przestrzeni semantycznej. Kluczową właściwością tej przestrzeni jest to, że odległość geometryczna między wektorami odzwierciedla podobieństwo semantyczne i syntaktyczne odpowiadających im słów~\cite{Mikolov2013EfficientEO, Pennington2014GLOVE}.
+
+Co więcej, dobrze wytrenowane osadzenia wykazują zdolność do kodowania regularności językowych poprzez proste operacje wektorowe. Kanonicznym przykładem tej właściwości jest rozwiązywanie analogii:
+
+$\text{wektor}(\text{"król"}) - \text{wektor}(\text{"mężczyzna"}) + \text{wektor}(\text{"kobieta"}) \approx \text{wektor}(\text{"królowa"})$
+
+Parametry osadzeń mogą być uczone od podstaw w ramach treningu docelowego modelu lub inicjalizowane wagami z modeli wstępnie wytrenowanych na zewnętrznych, dużych korpusach, na przykład FastText~\cite{Bojanowski2017Enriching} lub GloVe~\cite{Pennington2014GLOVE}. Zastosowanie wstępnie wytrenowanych osadzeń w ramach uczenia transferowego (\gls{gls:transfer-learning}) pozwala wyposażyć model w bogatą wiedzę semantyczną od pierwszej epoki treningowej, co często przyspiesza konwergencję i poprawia jego ostateczną skuteczność.
+
+
+\subsubsection{FastText}
+\label{secja:fasttext}
+Model FastText~\cite{Bojanowski2017Enriching} jest modelem predykcyjnym, który reprezentuje słowa w oparciu o jednostki mniejsze niż słowo. W odróżnieniu od metod operujących na całych tokenach, FastText modeluje każde słowo jako sumę wektorów jego n-gramów znakowych, czyli podsłów o długości $n$.
+
+
+Formalnie, każde słowo $w$ jest dekomponowane na zbiór n-gramów znakowych $G(w)$. Zbiór ten obejmuje samo słowo $w$ oraz wszystkie jego podciągi znaków o długości od $n_{\text{min}}$ do $n_{\text{max}}$, po uprzednim dodaniu do słowa symboli oznaczających jego początek $<$ i koniec $>$. Reprezentacja wektorowa słowa $\mathbf{v(w) }$ jest definiowana jako suma wektorów składowych $\mathbf{z_g}$, przypisanych do każdego n-gramu ze zbioru $G(w)$, zgodnie z równaniem:
+\begin{equation}
+\mathbf{v(w)}= \sum_{g \in G(w)} \mathbf{z_g},
+\end{equation}
+gdzie wektory n-gramów $\mathbf{z_g}$ są parametrami modelu uczonymi w procesie treningu.
+
+Podejście to wykazuje dwie istotne zalety. Po pierwsze, model efektywnie uwzględnia strukturę morfologiczną słów, co jest szczególnie wartościowe w językach o bogatej fleksji, takich jak język polski. Słowa o wspólnym rdzeniu, na przykład "kot" i "koty", współdzielą n-gramy, co skutkuje bliskością ich reprezentacji wektorowych. Po drugie, FastText jest w stanie generować wektory dla słów spoza słownika (\gls{gls:oov})~\cite{Lochter2020DeOutOfVocab}. Jeśli takie słowo składa się ze znanych modelowi n-gramów, jego wektor może zostać skonstruowany jako ich suma, podczas gdy tradycyjne modele przypisują takim słowom reprezentację losową lub zerową~\cite{Dessi2021}.
+
+
+\subsubsection{GloVe}
+\label{secja:glove}
+Model GloVe (Global Vectors for Word Representation)~\cite{Pennington2014GLOVE} opiera działanie na analizie statystyk współwystępowania słów w całym korpusie.
+
+Podstawą działania modelu GloVe jest macierz współwystępowania słów $\mathbf{X}$ o wymiarach $|\mathbf{g}| \times |\mathbf{g}|$ dla słownika $\mathbf{g}$ to rozmiar słownika. Każdy element $x_{i, j}$ tej macierzy reprezentuje liczbę wystąpień słowa $w_j$ w zdefiniowanym, symetrycznym oknie kontekstowym słowa $w_i$. Macierz $\mathbf{X}$ stanowi zatem globalne i ilościowe ujęcie relacji między wszystkimi parami słów w korpusie. Celem modelu jest wyuczenie takich wektorów, aby ich iloczyn skalarny odzwierciedlał logarytm prawdopodobieństwa ich współwystępowania.
+
+Model generuje reprezentacje wektorowe poprzez minimalizację ważonej funkcji straty, która opiera się na różnicy między iloczynem skalarnym wektorów a logarytmem ich empirycznej liczby współwystąpień. Funkcja straty jest zdefiniowana jako:
+\begin{equation}
+j = \sum_{i,j=1}^{|g|} f(x_{i, j}) (\mathbf{w}_i  \cdot \mathbf{\tilde{w}}_j + b_i + \tilde{b_j }- \log x_{i,j})^2 ,
+\end{equation}
+gdzie $\mathbf{w}_i$ oraz $\mathbf{\tilde{w}}_j$ to, odpowiednio, wektor docelowy słowa $w_i$ i wektor kontekstowy słowa $w_j$; $b_i$ i $\tilde{b}_j$ kompensują błędy systematyczne wynikające z różnic w częstotliwości występowania poszczególnych słów.
+
+Funkcja skalująca $f(x_{i, j})$ kontroluje wagę par słów w procesie optymalizacji. Zapobiega ona nadmiernemu wpływowi bardzo częstych, lecz mało informatywnych współwystąpień, jednocześnie nie ignorując rzadkich, ale potencjalnie istotnych par. Funkcja ta dla pary słów jest zdefiniowana jako:
+\begin{equation}
+f(x_{i, j}) =
+\begin{cases}
+\left( \frac{x_{i, j}}{x_{\text{max}}} \right)^\alpha & \text{jeśli } x_{i, j} < x_{\text{max}} \\
+1 & \text{w przeciwnym razie},
+\end{cases}
+\end{equation}
+gdzie $x_{\text{max}}$ oraz $\alpha$ to hiperparametry o stałych wartościach odpowiednio 100 i $3/4$. Dzięki takiemu podejściu GloVe efektywnie wykorzystuje globalne statystyki korpusu do tworzenia wysokiej jakości, semantycznie bogatych osadzeń słów.
+
+\subsection{Modelowanie sekwencji}
+\label{sekcja:modelowanie-sekwencji}
+Generowanie koherentnego podpisu do obrazu wymaga zdolności do modelowania zależności między sekwencją słów w zdaniu wyjściowych. Ewolucja technik modelowania sekwencji postępowała od prostych modeli statystycznych do zaawansowanych architektur głębokich.
+
+\subsubsection{Ujęcie statystyczne}
+\label{rozdzial:modele_sttystyczne}
+Probabilistyczne modelowanie języka ma na celu estymację rozkładu prawdopodobieństwa nad sekwencjami słów $P(y_1, y_2, ..., y_n)$. Zgodnie z regułą łańcuchową, prawdopodobieństwo to można zdekomponować na iloczyn prawdopodobieństw warunkowych:
+\begin{equation}
+    P(y_1, ..., y_n) = \prod_{i=1}^{n} P(y_i | y_1, ..., y_{i-1}).
+\end{equation}
+
+Bezpośrednia estymacja tych prawdopodobieństw jest niewykonalna. Po pierwsze statystycznie, długie, specyficzne sekwencje kontekstowe występują w danych treningowych niezwykle rzadko lub wcale. Po drugie obliczeniowo, zarządzanie i przetwarzanie kontekstów o zmiennej i potencjalnie nieograniczonej długości jest nieefektywne.  
+
+Rozwiązaniem jest przyjęcie założenia Markowa, które ogranicza kontekst do $k$ ostatnich słów~\cite{Almutiri2022Markov}:
+$$
+P(y_i | y_1, ..., y_{i-1}) \approx P(y_i | y_{i-k}, ..., y_{i-1}).
+$$
+Innymi słowy, historia dłuższa niż $k$ słów jest uznawana za nieistotną dla predykcji słowa $y_i$. 
+
+
+
+Praktyczną realizacją założenia Markowa są modele n-gramowe, gdzie $n = k+1$ i oznacza długość analizowanego kontekstu~\cite{Qi2025Markov}. W paradygmacie tym prawdopodobieństwa warunkowe obliczane są na podstawie znormalizowanych częstości występowania n-gramów (sekwencji $n$ słów) w korpusie treningowym, zazwyczaj za pomocą metody \gls{mle}. Mimo że podejście to znacząco redukuje złożoność obliczeniową, uwypukla jednocześnie problem rzadkości danych. Wiele poprawnych semantycznie i gramatycznie n-gramów może nie wystąpić w ograniczonym zbiorze treningowym, w wyniku czego estymator MLE przypisze im zerowe prawdopodobieństwo, co dyskwalifikuje każde zdanie zawierające choćby jeden taki n-gram. W celu rozwiązania tego problemu stosuje się techniki wygładzania (\gls{gls:smoothing}), które polegają na alokacji części masy prawdopodobieństwa z n-gramów zaobserwowanych w korpusie treningowym do n-gramów niezaobserwowanych. Najpopularniejsze to wygładzanie Laplace'a~\cite{Manning2008IntroductionToInformationRetrieval}, Knesera-Neya~\cite{Chen1998SmoothingTech}, 
+
+Fundamentalną wadą modeli n-gramowych jest ich sztywne, krótkie okno kontekstowe. Motywuje to przejście w stronę architektur neuronowych. Modele te z definicji nie są w stanie modelować dalekosiężnych zależności w języku naturalnym, co jest warunkiem zrozumienia treści w języku naturalnym. W zdaniu: "Jan poszedł do kina z Marią, ponieważ dawno nie oglądał żadnego filmu; była bardzo zachwycona". Aby poprawnie przewidzieć ostatnie słowo – "zachwycona" – model musi wiedzieć, że podmiotem, którego dotyczy przymiotnik, jest "Maria", a nie "Jan". Jednak dla typowego modelu n-gramowego, jak trigramu lub 4-gramu, kontekst w momencie predykcji "...była bardzo" nie zawiera informacji o słowie "Maria", które wystąpiło znacznie wcześniej. Model statystyczny nie jest w stanie powiązać formy gramatycznej przymiotnika z odległym rzeczownikiem, co stanowi jego immanentne ograniczenie i uzasadnia konieczność zastosowania podejść zdolnych do kodowania i wykorzystywania znacznie dłuższego kontekstu, takich jak rekurencyjne sieci neuronowe.
+
+\subsubsection{Podstawowa rekurencyjna sieć neuronowa}
+\label{sekcja:sieci-rekurencyjne}
+Rekurencyjne sieci neuronowe (RNN, Recurrent Neural Networks) to klasa architektur neuronowych zaprojektowanych do przetwarzania danych sekwencyjnych o zmiennej długości. Inherentną cechą architektur rekurencyjnych jest pętla zwrotna, która pozwala na przekazywanie informacji z poprzednich kroków czasowych do bieżącego. Koncepcja ta jest realizowana poprzez stan ukryty $\mathbf{h_t}$, który agreguje informacje z całej dotychczas przetworzonej sekwencji. Stan ten pełni rolę pamięci o zmiennej długości, co teoretycznie pozwala na modelowanie zależności na dowolną odległość.
+\input{wykresy/sieci_rekurencyjne/komorka_RNN}
+
+
+Podstawowa komórka RNN aktualizuje swój stan ukryty $\mathbf{h_t}$ w każdym kroku czasowym $t$ na podstawie poprzedniego stanu $\mathbf{h_{t-1}}$ oraz bieżącego wejścia $\mathbf{x_t}$, co przedstawiono na Rysunku~\ref{fig:komorka_RNN}. Proces ten formalnie zdefiniowano przez następujące równanie:
+\begin{equation}
+   \mathbf{h_t} = \tanh(\mathbf{W_{h}}\mathbf{h_{t-1} }+ \mathbf{W_{x}}\mathbf{x_t} + \mathbf{b_h}) ,
+\end{equation}
+gdzie $\mathbf{W_{\mathbf{h}}}$, $\mathbf{W_{\mathbf{x}}}$, $\mathbf{b_h}$ to trenowane parametry modelu, a tgh jest nieliniową funkcją aktywacji.
+ 
+Pomimo teoretycznej zdolności do modelowania długich zależności, trenowanie standardowych architektur RNN napotyka na istotne trudności praktyczne związane z propagacją gradientu funkcji błędu w czasie, takich jak problem znikającego oraz eksplodującego gradientu~\cite{goodfellow2017deep}.
+
+W przypadku znikającego gradientu metody oparte na propagacji wstecznej i gradiencie obliczają częściowe pochodne dla funkcji błędu na podstawie wag w danym kroku. W pewnych przypadkach gradient jest tak niewielki, że obliczone wagi nie zmieniają się. Może prowadzić to nawet do całkowitego zatrzymania treningu~\cite{goodfellow2017deep}. 
+
+Adekwatnie dla eksplodującego gradientu, może dojść do sytuacji, gdzie błędy skumulują się, a wagi w pojedynczej iteracji będą tak ogromne, że spowodują zjawisko przekroczenia dopuszczalnej wartości~\cite{goodfellow2017deep}. W efekcie model nie jest w stanie uczyć się na danych treningowych, zaś trening nie może zostać ukończony. Oba problemy są szczególnie dotkliwe w przypadku przetwarzania długich sekwencji danych, gdzie kluczowe jest zachowanie stabilnego przepływu informacji w czasie. W celu ich mitygacji stosuje się regularyzację wag oraz obcinanie gradientu (\gls{gls:gradient-clipping}). 
+
+Odpowiedzią na te ograniczenia stały się bardziej złożone architektury, takie jak LSTM~\cite{Hochreiter1997LSTM} i GRU~\cite{Cho2014Properties}. Wprowadzają one mechanizmy bramek, które w sposób adaptacyjny kontrolują przepływ informacji przez komórkę. Bramki te decydują, które informacje należy zachować w stanie komórki, które usunąć, a które wykorzystać do wygenerowania wyjścia, co skutecznie łagodzi problem zanikającego gradientu.
+
+W kontekście modelowania języka naturalnego, architektury rekurencyjne stanowią znaczący postęp w stosunku do klasycznych modeli statystycznych, takich jak n-gramy. Podstawową przewagą RNN jest zdolność do modelowania zależności o nieograniczonej długości, w przeciwieństwie do stałego, predefiniowanego okna kontekstowego w modelach n-gramowych. W tym ujęciu, wektor wejściowy $\mathbf{x_t}$ reprezentuje słowo lub znak w kroku $t$, a stan ukryty $\mathbf{h_t}$ staje się numeryczną reprezentacją całego dotychczasowego kontekstu. Dzięki temu sieć jest w stanie uchwycić semantyczne i syntaktyczne właściwości sekwencji, które są kluczowe dla zadań takich jak generowanie tekstu, tłumaczenie maszynowe czy analiza sentymentu.
+
+\subsubsection{Sieć LSTM}
+\label{rozdzial:siec_LSTM}
+Sieć LSTM~\cite{Hochreiter1997LSTM} to wariant rekurencyjnej sieci neuronowej, gdzie udoskonalono zarządzanie pamięcią w każdym kroku czasowym generowania sekwencji wyjściowej. Odpowiada za to stan komórki $\mathbf{c_t}$, który przechowuje informacje w każdym kroku czasowym podczas generowania sekwencji wyjściowej. W odróżnieniu od stanu ukrytego w klasycznym RNN, podlega jedynie niewielkim modyfikacjom liniowym, zatem informacje oraz gradienty mogą być propagowane bez większych zmian w długich sekwencjach. 
+\input{wykresy/sieci_rekurencyjne/komorka_LSTM}
+
+Ponadto architektura LSTM wprowadza podział na pamięć długoterminową, przechowywaną w stanie komórki $\mathbf{c_t}$, oraz na pamięć krótkoterminową, reprezentowaną przez stan ukryty $\mathbf{h_t}$. Za kontrolę przepływu informacji w całej komórce LSTM odpowiada system trzech bramek: bramki zapominania, bramki wejściowej i bramki wyjściowej. Bramki te działają w oparciu o warstwę sigmoidalną, a na wyjściu generują wartości z przedziału $[0, 1]$. Wartości bliskie o powodują zablokowanie przepływu informacji, a wartości bliskie 1 implikują swobodny przepływ informacji.
+
+Aktualizacji stanu komórki i generowania wyjścia w pojedynczym kroku czasowym $t$ przebiega sekwencyjnie, integrując działanie wszystkich trzech bramek, co przedstawiono na Rysunku~\ref{fig:komorka_LSTM}.
+
+W pierwszym kroku bramka zapominania $\mathbf{f_t}$ decyduje, które informacje z poprzedniego stanu komórki $\mathbf{c_{t-1}}$ należy usunąć. Decyzja ta jest podejmowana na podstawie poprzedniego stanu ukrytego $\mathbf{h_{t-1}}$ oraz bieżących danych wejściowych $\mathbf{x_t}$ zgodnie z równaniem:
+\begin{equation}
+    \mathbf{f}_t = \sigma(\mathbf{W_f} \mathbf{x}_t + \mathbf{R}_{\mathbf{f}} \mathbf{h}_{t-1} + \mathbf{b_{\mathbf{f}}}),
+\end{equation}
+gdzie $\mathbf{W}_{\mathbf{f}}$ i $\mathbf{R}_{\mathbf{f}}$ to macierze wag, a $\mathbf{b_f}$ to wektor obciążenia (bias).
+
+Następnie bramka wejściowa $\mathbf{i}_t$ określa, które nowe informacje powinny zostać zapisane w stanie komórki. Proces ten jest dwuetapowy. Najpierw warstwa sigmoidalna decyduje o tym, które wartości należy zaktualizować:
+\begin{equation}
+    \mathbf{i}_t = \sigma(\mathbf{W}_{\mathbf{i}} \mathbf{x}_t + \mathbf{R}_{\mathbf{i}} \mathbf{h}_{t-1} + \mathbf{b}_i) .
+\end{equation}
+Równocześnie warstwa z funkcją tgh tworzy wektor wartości $\tilde{c}_t$, kandydujących do dodania do stanu komórki:
+\begin{equation}
+    \mathbf{\tilde{c}}_t = \text{tgh}(\mathbf{W}_{\mathbf{c}} \mathbf{x}_t + \mathbf{R}_c \mathbf{h}_{t-1} + \mathbf{b}_c).
+\end{equation}
+Nowy stan komórki, $\mathbf{c}_t$, jest obliczany poprzez połączenie wyników działania bramki zapominania i wejściowej. Wektor bramki zapominania $\mathbf{f}_t$ jest mnożony poelementowo przez poprzedni stan komórki  $\mathbf{c}_{t-1}$. Następnie do wyniku dodawany jest iloczyn poelementowy wektora kandydującego $\tilde{\mathbf{c}}_t$ i wektora bramki wejściowej $\mathbf{i}_t$:
+\begin{equation}
+    \mathbf{c}_t = \mathbf{f}_t \odot \mathbf{c}_{t-1} + \mathbf{i}_t \odot \tilde{\mathbf{c}}_t   ,
+\end{equation}
+gdzie $\odot$ to mnożenie poelementowe (iloczyn Hadamarda)
+W ostatnim kroku wyznaczany jest nowy stan ukryty $\mathbf{h}_t$ zależny od bramki wyjściowej $\mathbf{o}_t$. Bramka $\mathbf{o}_t$ filtruje zaktualizowany stan komórki $\mathbf{c}_t$, decydując, która jego część zostanie przekazana jako wyjście, według wzoru:
+\begin{equation}
+    \mathbf{o}_t = \sigma(\mathbf{W}_o \mathbf{x}_t + \mathbf{R}_o \mathbf{h}_{t-1} + \mathbf{b}_o)  .
+\end{equation}
+Następnie stan komórki $\mathbf{c}_t$ jest normalizowany przez funkcję tgh, a wynik jest mnożony przez wektor $\mathbf{o}_t$, co daje ostateczny stan ukryty:
+\begin{equation}
+    \mathbf{h}_t = \mathbf{o}_t \odot \text{tgh}(\mathbf{c}_t)      .
+\end{equation}
+Skuteczność sieci LSTM wynika z faktu, że operacje wykonywane przez bramki nie są predefiniowane, lecz wynikają z przebiegu treningu. Każda bramka optymalizuje własny zbiór parametrów $\mathbf{W},\mathbf{R},\mathbf{b}$ podczas treningu, dzięki czemu sieć autonomicznie uczy się optymalnej dla danego zadania strategii zarządzania informacją – zapominania, aktualizacji i selekcji danych wyjściowych. Dzięki rozdzieleniu funkcji stanu komórki $\mathbf{c}_t$ od stanu ukrytego  $\mathbf{h}_t$ możliwe jest modelowanie długich sekwencji.
+
+\subsubsection{Sieć GRU}
+\label{rozdzial:siec_gru}
+Architektura GRU~\cite{Cho2014Learning} stanowi modyfikację klasycznej, rekurencyjnej sieci neuronowej, która, podobnie jak LSTM, została zaprojektowana w celu rozwiązania problemu zanikającego gradientu za pomocą mechanizmów bramkujących. W porównaniu do LSTM, model GRU charakteryzuje się mniejszą złożonością obliczeniową, ponieważ jego struktura obejmuje jedynie dwie bramki – resetującą i aktualizacji. Ponadto GRU rezygnuje z oddzielnej komórki pamięci $\mathbf{c}_t$, integrując jej funkcjonalność bezpośrednio w stanie ukrytym $\mathbf{h}_t$.
+\input{wykresy/sieci_rekurencyjne/komorka_GRU}
+
+Proces obliczeniowy w komórce GRU, zilustrowany na Rysunku~\ref{fig:komorka_GRU}, przebiega sekwencyjnie. Finalny stan ukryty $\mathbf{h}_t$ jest wyznaczany na podstawie wektora wejściowego $\mathbf{x}_t$ oraz stanu ukrytego z poprzedniego kroku czasowego $\mathbf{h}_{t-1}$.
+
+W pierwszym kroku obliczana jest bramka resetująca $\mathbf{r}_t$, która determinuje, które informacje z poprzedniego stanu ukrytego $\mathbf{h}_{t-1}$ są istotne dla obliczenia nowego kandydata na stan ukryty~\cite{Mienye2024GRU}. Wartość bramki obliczana jest za pomocą funkcji sigmoidalnej $\sigma$ i przyjmuje wartości w przedziale $[0, 1]$. Wartość bliska 0 oznacza ignorowanie informacji z $\mathbf{h}_{t-1}$, podczas gdy wartość bliska 1 wskazuje na jej pełne zachowanie:
+\begin{equation}
+    \mathbf{r}_t = \sigma(\mathbf{W}_{\mathbf{r}} \mathbf{x}_t + \mathbf{R}_{\mathbf{r}} \mathbf{h}_{t-1} + \mathbf{b}_{\mathbf{r}}),
+\end{equation}
+gdzie $\mathbf{W}_r$ i $\mathbf{R}_r$ to trenowane parametry modelu.
+
+Następnie obliczana jest bramka aktualizacji $\mathbf{u}_t$. Bramka $\mathbf{u}_t$ odpowiada ona za kontrolę, w jakim stopniu finalny stan ukryty $\mathbf{h}_t$ będzie bazował na stanie z poprzedniego kroku $\mathbf{\mathbf{h}}_{t-1}$, a w jakim na nowo obliczonym kandydacie $\tilde{\mathbf{h}}_t$. Mechanizm ten odpowiada za modelowanie zależności długoterminowych, poprzez przenoszenie wybranych informacji przez wiele kroków czasowych. Podobnie jak bramka resetująca, wykorzystuje funkcję sigmoidalną:
+\begin{equation}
+    \mathbf{u}_t = \sigma(\mathbf{W}_u \mathbf{x}_t + \mathbf{R}_{\mathbf{u}} \mathbf{h}_{t-1} + \mathbf{b}_{\mathbf{u}}) ,
+\end{equation}
+gdzie $\mathbf{W}_{\mathbf{u}}$, $\mathbf{R}_{\mathbf{u}}$ i $b_{\mathbf{u}}$ to trenowane parametry modelu.
+
+W kolejnym kroku wyznaczany jest kandydat na nowy stan ukryty $\tilde{\mathbf{h}}_t$. Jest to propozycja nowej wartości stanu ukrytego, formułowana na podstawie bieżącego wejścia $\mathbf{x}_t$ oraz wersji poprzedniego stanu ukrytego, przefiltrowanej przez bramkę resetującą $(\mathbf{r}_t \odot \mathbf{h}_{t-1})$. Poprzez iloczyn Hadamarda informacje nieistotne są filtrowane z $\mathbf{h}_{t-1}$, a następnie normalizowane za pomocą funkcji tgh do zakresu (-1, 1)
+\begin{equation}
+    \tilde{\mathbf{h}}_t = \text{tgh}(\mathbf{W}_{\tilde{\mathbf{h}}} \mathbf{x}_t + \mathbf{u}_{\tilde{\mathbf{h}}}(\mathbf{r}_t \odot \mathbf{h}_{t-1}) + \mathbf{b}_{\tilde{h}}) ,
+\end{equation}
+gdzie $\mathbf{W}_{\tilde{\mathbf{h}}}$, $\mathbf{u}_{\tilde{\mathbf{h}}}$ i $\mathbf{b_{\tilde{h}}}$ to uczone parametry modelu.
+
+Ostatnim krokiem jest obliczenie wyjściowego stanu ukrytego $\mathbf{h}_t$ dla kroku czasowego $t$. Jest to wynik interpolacji liniowej pomiędzy poprzednim stanem ukrytym $\mathbf{h}_{t-1}$ a kandydatem $\tilde{\mathbf{h}}_t$. Bramka aktualizacji $\mathbf{u}_t$ pełni rolę współczynnika tej interpolacji, decydując o proporcjach, w jakich łączone są oba stany:
+\begin{equation}
+    \mathbf{h}_t = (1 - \mathbf{u}_t) \odot \mathbf{h}_{t-1} + \mathbf{u}_t \odot \tilde{\mathbf{h}}_t  .
+\end{equation}
+Dzięki temu mechanizmowi komórka GRU elastycznie zarządza pamięcią. Gdy wartości $\mathbf{u}_t$ są bliskie 0, większość informacji z $\mathbf{h}_{t-1}$ jest zachowywana, co jest kluczowe dla przechwytywania długoterminowych zależności. Z kolei gdy $\mathbf{u}_t$ dąży do 1, stan ukryty jest zastępowany przez nowo wygenerowanego kandydata $\tilde{\mathbf{h}}_t$ celem adaptacji do nowych, istotnych informacji z bieżącego wejścia.
+
+
+
+
+
+\section{Podstawowy model koder--dekoder -- synteza i ograniczenia}
+Po przedstawieniu komponentów kodera wizualnego i dekodera językowego, niniejsza sekcja omawia ich syntezę w zintegrowany system oraz proces jego uczenia.
+
+\subsection{Połączenie obrazu i tekstu}
+\label{sekcja:jak_poloczyc_cechy_obrazu_tekstu}
+\input{wykresy/scalanie_wstrzykiwanie/scalanie_wstrzykiwanie}
+Istotnym aspektem w konstrukcji modelu do automatycznego generowania podpisów do obrazów jest metoda połączenia informacji pochodzących z dwóch różnych modalności – wizualnej i tekstowej. Zasadnicza decyzja architektoniczna dotyczy etapu oraz sposobu, w jaki cechy obrazu powinny zostać zintegrowane z dekoderem RNN. W literaturze przedmiotu wyróżnia się  architekturę wstrzykiwania oraz architekturę fuzji~\cite{TantiGattCamilleri2018Where, Tanti2017Role}.
+
+Architektura wstrzykiwania polega na włączeniu informacji wizualnej bezpośrednio w proces rekurencyjnego przetwarzania danych w dekoderze, co wymusza na modelu trenowanie wspólnej, multimodalnej reprezentacji. W zależności od momentu integracji wektora cech wizualnych wyróżnia się następujące warianty tej architektury.
+
+W metodzie wstrzykiwania inicjalnego (initial injection, Rysunek~\ref{fig:wstrzykiwanie_inicjalne}) wektor cech obrazu służy do zainicjowania początkowego stanu ukrytego sieci RNN. W wariancie wstrzykiwania wstępnego (pre-injection, Rysunek~\ref{fig:wstrzykiwanie_wstepne}) wektor cech obrazu jest podawany na wejście sieci w pierwszym kroku czasowym, poprzedzając osadzenie słowa inicjującego generowanie podpisu. Jednocześnie metoda nie precyzuje sposobu inicjalizacji stanu ukrytego. Natomiast wstrzykiwanie równoległe (parallel injection, Rysunek~\ref{fig:wstrzykiwanie_rownolegle}) polega na dostarczaniu cech wizualnych do dekodera w każdym kroku czasowym, zazwyczaj poprzez konkatenację z wektorem osadzenia słowa. Zapewnia to stały dostęp do informacji o obrazie, jednak wiąże się ze znacznym kosztem obliczeniowym.
+
+Odmienne podejście prezentuje architektura fuzji (Rysunek~\ref{fig:architektura_scalania}), w której modalności wizualna i tekstowa są przetwarzane oddzielnie. Sieć RNN operuje wyłącznie na sekwencji osadzeń słów, kodując kontekst językowy w stanie ukrytym. Informacja wizualna jest dołączana dopiero na etapie predykcji kolejnego słowa. W tym celu finalny stan ukryty RNN jest łączony z wektorem cech obrazu za pomocą konkatenacji, sumy wektorów bądź iloczynu Hadamarda. Wynik tej operacji stanowi wejście dla warstwy klasyfikacyjnej, obliczającej rozkład prawdopodobieństwa nad słownikiem.
+
+Porównując obie strategie, architektura wstrzykiwania wymusza naukę złożonej, wspólnej przestrzeni cech. Wiąże się to jednak z większą liczbą parametrów i ryzykiem zanikania wpływu informacji wizualnej w procesie generowania dłuższych sekwencji. Z kolei architektura fuzji charakteryzuje się niższą złożonością obliczeniową i wyraźnym rozdziałem przetwarzania obu modalności. Może to jednak ograniczać zdolność modelu do generowania zdania na podstawie treści obrazu na wczesnych etapach dekodowania.
+
+\subsection{Proces uczenia}
+Połączony model koder-dekoder jest jednolicie trenowany (\gls{gls:end-to-end-training}). Oznacza to, że cała architektura, od wejścia obrazu do wyjścia w postaci sekwencji słów, jest traktowana jako jeden zintegrowany system. Sygnał błędu jest propagowany wstecznie (\gls{gls:backpropagation}) przez całą głębokość modelu, od warstwy wyjściowej dekodera aż do pierwszych warstw kodera wizualnego. Umożliwia to jednoczesną optymalizację parametrów obu modułów w architekturze koder-dekoder. W efekcie model uczy się nie tylko generowania języka, ale również ekstrakcji cech wizualnych najbardziej relewantnych dla zadania.
+
+Jako funkcję straty standardowo stosuje się entropię krzyżową (\gls{gls:cross-entropy}). Celem optymalizacji jest minimalizacja ujemnego logarytmu prawdopodobieństwa poprawnej sekwencji docelowej $\mathbf{c} = (y_1, ..., y_n)$ o długości $n$ dla danego obrazu $I$, przy danych parametrach modelu $\theta$. Całkowitą stratę dla pojedynczej pary (obraz, podpis) definiuje się jako sumę strat dla każdego słowa w sekwencji:
+\begin{equation}
+    L(I, \mathbf{c}) = - \sum_{t=1}^{n} \log p(y_t | I, y_1, \dots, y_{t-1}; \theta),
+\end{equation}
+gdzie $p(y_t | ...)$ jest prawdopodobieństwem wygenerowania poprawnego słowa $y_t$ w kroku czasowym $t$ na wyjściu dekodera. Optymalizacja parametrów modelu $\theta$ w celu minimalizacji tej funkcji straty odbywa się z wykorzystaniem algorytmów opartych na stochastycznym spadku gradientu, takich jak SGD~\cite{Sutskever2013SGD}, RMSprop~\cite{Graves2013Graves} czy Adam~\cite{Kingma2014AdamOptimizer}. 
+
+\subsection{Generowanie sekwencji wyjściowej}
+\label{rozdzial:generowanie_sekwencji_wyjsciowej}
+Po zakończeniu treningu model jest wykorzystywany do generowania podpisów dla nowych obrazów w fazie inferencji. W zadaniu automatycznego generowania podpisów obrazów, podczas generowania zdania wyjściowego, dekoder w każdym kroku czasowym $t$ generuje warunkowy rozkład prawdopodobieństwa $P(y_t | y_{1:t-1}, I)$, który określa prawdopodobieństwo wygenerowania słowa $y_t$ w podpisie, na podstawie historii wcześniej wygenerowanych słów $y_{1:t-1}$ oraz obrazu $I$. Wybór finalnej sekwencji słów z tych rozkładów wymaga zastosowania deterministycznej strategii dekodowania.
+
+Najbardziej intuicyjnym podejściem do generowania sekwencji wyjściowej jest algorytm zachłanny (\gls{gls:greedy-search}). W każdym kroku czasowym $t$, algorytm ten wybiera słowo $y_t$ o najwyższym prawdopodobieństwie warunkowym, zgodnie z następującym wzorem~\cite{zhang2023dive}:
+\begin{equation}
+    y_t = \arg\max_{y \in G} P(y_t = y \mid  y_1, y_1, \ldots, y_{t-1}, I),
+\end{equation}
+gdzie $g$ oznacza słownik modelu językowego o długości $|g|$.
+
+Mimo prostoty i niskiej złożoności obliczeniowej strategia ta nie gwarantuje uzyskania globalnie optymalnej sekwencji, ponieważ podejmuje decyzje optymalne jedynie lokalnie.
+
+\input{wykresy/ilustracja_przeszukiwania_wiazkowego}
+Algorytm przeszukiwania wiązkowego przezwycięża ograniczenia podejścia zachłannego. Zamiast jednej, najlepszej hipotezy, algorytm ten utrzymuje i rozwija $k$ najbardziej prawdopodobnych sekwencji w każdym kroku czasowym~\cite{Jurasky2023}, gdzie $k$ jest hiperparametrem zwanym szerokością wiązki. Algorytm ten można interpretować jako przeszukiwanie przestrzeni możliwych podpisów, reprezentowanej jako drzewo przeszukiwania, jak przedstawiono na Rysunku~\ref{fig:ilustracja_przeszukiwania_wiazkowego}. Węzły drzewa odpowiadają sumarycznemu prawdopodobieństwu wygenerowania fragmentów zdania. Krawędzie reprezentują prawdopodobieństwa warunkowe wygenerowania słowa na podstawie poprzednich słów i obrazu $I$. Celem jest znalezienie ścieżki w drzewie, która odpowiada podpisowi o najwyższym prawdopodobieństwie.
+
+W każdym kroku $t$, dla każdej z $k$ hipotez z kroku $t-1$, generowanych jest $|g|$ potencjalnych kontynuacji. Następnie obliczana jest skumulowana ocena dla każdej z $k \times |g|$ nowo powstałych sekwencji metodą logarytmu prawdopodobieństwa:
+\begin{equation}
+    \text{score}(y_{1:t}) = \sum_{i=1}^{t} \log P(y_i | y_{1:i-1}, I).
+\end{equation}
+Spośród wszystkich kandydatur do dalszego przetwarzania w kroku $t+1$ wybieranych jest $k$ sekwencji o najwyższej ocenie. Proces jest kontynuowany do momentu, gdy wszystkie hipotezy w wiązce zakończą się słowem kończącym generowanie sekwencji $<$STOP$>$ lub osiągną maksymalną, predefiniowaną długość. Ostatecznie wybierana jest sekwencja o najwyższej ocenie końcowej. Przeszukiwanie wiązkowe stanowi kompromis między jakością generowanych sekwencji a kosztem obliczeniowym. Prowadzi do uzyskania bardziej trafnych i spójnych językowo podpisów niż dekodowanie zachłanne.
+
+
+\subsection{Ograniczenia modelu podstawowego}
+Mimo swojej skuteczności i fundamentalnego znaczenia dla rozwoju dziedziny, podstawowa architektura koder-dekoder cechuje się istotnymi ograniczeniami.
+
+Głównym ograniczeniem jest konieczność odwzorowania całej informacji wizualnej w pojedynczym wektorze cech o stałej długości. Reprezentacja ta redukuje informacje o złożonych relacjach na obrazie, stosowanie spłaszczonej mapy cech jest nieefektywne obliczeniowo.
+
+W przypadku wektora powstałego metodą GAP model traci dane o relacjach przestrzennych.
+Dla wektora zawierającego spłaszczoną mapę cech niezbędne jest rozwiązanie, które efektywnie przetwarza duże ilości danych. 
+
+Drugim istotnym problemem jest rozbieżność między celem uczenia a metrykami ewaluacji modelu. Model jest trenowany poprzez optymalizację lokalnej funkcji straty (entropii krzyżowej), co jest formą uczenia z nauczycielem. Jego finalna jakość jest jednak oceniana za pomocą globalnych metryk sekwencyjnych, takich jak BLEU, METEOR czy CIDEr, które mierzą podobieństwo całych zdań do podpisów referencyjnych. Optymalizacja sumy lokalnych prawdopodobieństw nie gwarantuje, że wygenerowana sekwencja będzie optymalna w świetle tych metryk~\cite{Shao2021Sequence, Cahyono2024automatedimagecaptioningcnns}
+
+Podsumowując, skuteczność podstawowej architektury koder-dekoder jest systemowo ograniczona przez statyczny charakter reprezentacji wizualnej. Aby przezwyciężyć to ograniczenie, zaadaptowano mechanizm uwagi, który stanowi przedmiot analizy w kolejnej sekcji.
+
+
+\section{Mechanizm uwagi -- selektywne przetwarzanie złożonych cech obrazu}
+\label{rozdzial:mechanizm_uwagi}
+Mechanizm uwagi umożliwia dekoderowi dostęp do pełnego zbioru cech obrazu na każdym etapie generowania sekwencji wyjściowej. Aby było to efektywne obliczeniowo model selektywnie skupia się na najbardziej relewantnych w danym momencie fragmentach obrazu i na ich podstawie predykuje kolejne słowo. Formalnie w architekturze z mechanizmem uwagi, predykcja słowa w kroku czasowym $t$ jest warunkowana nie tylko stanem ukrytym dekodera $\mathbf{h_t}$, ale również wektorem kontekstu $\mathbf{z_t}$, zgodnie z formułą~\cite{Bahdanau2015NeuralMT}:
+\begin{equation}
+    p(y_t | y_1, ..., y_{t-1}, I) = f(\mathbf{h}_t, \mathbf{z}_t).
+\end{equation}
+
+Choć formalny zapis jest podobny do modelu podstawowego, innowacja polega na naturze wektora kontekstu. W architekturze klasycznej jest on dla każdego słowa identyczny i równy globalnemu wektorowi cech obrazu $\mathbf{z_t = v}$, gdzie $\mathbf{v}$ to pojedynczy, zagregowany wektor całej mapy cech obrazu $\mathbf{V}$. W architekturze z mechanizmem uwagi wektor $\mathbf{z}_t$ jest w każdym kroku czasowym obliczany na nowo jako ważona suma wektorów z mapy cech. Pozwala to na kontekstowe modelowanie zależności między obrazem a tekstem.
+
+\subsection{Podstawowy mechanizm uwagi miękkiej}
+Uwaga miękka (\gls{gls:soft-attention})~\cite{Xu2015ShowAttendTell} to jeden z pierwszych wariantów mechanizmu uwagi, który zastosowano w zadaniu automatycznego podpisywania obrazów. Metoda ta stała się bazą dla bardziej zaawansowanych architektur.
+
+Model z uwagą miękką jako wejście przyjmuje mapę cech o odpowiednio wysokości, szerokości i liczbie kanałów $w \times s \times d$, wygenerowaną przez splotową sieć neuronową. Mapa ta jest następnie interpretowana jako zbiór $l = w \times s$ wektorów cech obrazu $\mathbf{V= \{v}_1, \dots, \mathbf{v}_l\}$, gdzie każdy d-wymiarowy wektor $\mathbf{v}_i$ stanowi reprezentację cech wizualnych dla $i$-tego fragmentu obrazu.
+
+Proces generowania podpisu do obrazu rozpoczyna się od ustalenia początkowych wartości stanu ukrytego $\mathbf{h}_0$ oraz stanu komórki $\mathbf{c}_0$ komórki LSTM w dekoderze. Wartości te są wyznaczane na podstawie globalnego wektora kontekstu obrazu, obliczanego jako średnia arytmetyczna $l$ wektorów cech obrazu $\mathbf{V}$:
+\begin{equation}
+    \bar{\mathbf{v}} = \frac{1}{l}\sum_{i=1}^{l} \mathbf{v}_i.
+\end{equation}
+Następnie wektor $\bar{\mathbf{v}}$ jest przetwarzany przez dwie oddzielne, jednowarstwowe sieci neuronowe $f_{\mathbf{h}_0}$ oraz $f_{c_0}$ w celu uzyskania odpowiednio początkowego stanu ukrytego $\mathbf{h}_0$ oraz stanu komórki $\mathbf{c}_0$.
+
+Predykcja kolejnych słów dla $t>0$ ma charakter iteracyjny. Dla każdego kroku czasowego $t$ mechanizm uwagi dokonuje oceny istotności każdego wektora $\mathbf{v}_i$ w kontekście stanu ukrytego dekodera z poprzedniego kroku $\mathbf{h}_{t-1}$. W tym celu stosowana jest jednowarstwowa sieć neuronowa, która dla każdej z $l$ wektorów cech oblicza ocenę skalarną $e_{t,i}$ warunkowaną na poprzednim stanie ukrytym $\mathbf{h}_{t-1}$. Wartość ta określa stopień, w jakim dany fragment obrazu jest istotny dla predykcji aktualnego słowa $y_t$~\cite{Xu2015ShowAttendTell, Bahdanau2015NeuralMT}:
+\begin{equation}
+    \mathbf{e_{t,i} =r}^T \tanh(\mathbf{W}_v \mathbf{h}_{t-1} + \mathbf{U}_v \mathbf{v}_i + \mathbf{b}_v),
+\end{equation}
+gdzie $\mathbf{W}_v, \mathbf{U}_v$ to uczone macierze wag, a $\mathbf{r}$ to również uczony wektor wag, których model uczy się podczas treningu. Ich zadaniem jest przekształcenie danych wejściowych i stanu ukrytego w taki sposób, aby można było obliczyć ich wzajemne dopasowanie.
+
+Uzyskane w ten sposób wyniki dopasowania dla wszystkich $l$ fragmentów są normalizowane funkcją softmax. W efekcie powstaje rozkład wag uwagi $\boldsymbol{\alpha}_t$, którego elementy sumują się do jedności. Można go interpretować jako dyskretny rozkład prawdopodobieństwa, określający skupienie uwagi modelu na poszczególnych fragmentach obrazu:
+\begin{equation}
+\boldsymbol{\alpha}_{t,i} = \frac{\exp(e_{t,i})}{\sum_{m=1}^{l} \exp(e_{t,m})}.
+\end{equation}
+
+Finalnie obliczany jest wektor kontekstu $\mathbf{z}_t$ jako ważona suma wszystkich wektorów cech $\mathbf{v}_i$, gdzie wagami są wyznaczone wcześniej wagi uwagi $\boldsymbol{\alpha_{t,i}}$:
+\begin{equation}
+    \mathbf{z}_t = \sum_{i=1}^{l} \alpha_{t,i} \mathbf{v}_i.
+    \label{eq:uwaga_miekka_wektor_kontekstu}
+\end{equation}
+
+Wektor kontekstu $\mathbf{z}_t$ stanowi syntetyczną reprezentację wizualną, w której regiony o wyższych wagach uwagi mają większy wpływ na proces generowania słowa $y_t$. Tak obliczony wektor kontekstu jest następnie konkatenowany z osadzeniem poprzednio wygenerowanego słowa $y_{t-1}$ i podawany jako wejście do sieci LSTM w bieżącym kroku czasowym. 
+Zaktualizowany stan ukryty $\mathbf{h_{t}}$ zgodnie z \begin{equation}
+    \mathbf{h_t} = \text{LSTM}([\mathbf{\text{e}(y_{t-1}); z_t], h_{t-1}})\label{eq:ht_uwaga_miekka}
+\end{equation}
+równaniem oraz mapa cech $\mathbf{V}$ służy do predykcji rozkładu prawdopodobieństwa nad słownikiem dla słowa $y_t$:: 
+\begin{equation}
+    p(y_t | y_{1:t-1}, I) = \text{softmax}(\mathbf{W}_p(\mathbf{h}_t)).
+    \label{eq:uwaga_miekka_prawdopodobienstwo}
+\end{equation}
+ W ten sposób wygenerowane słowo wpływa na to, gdzie model skupi uwagę w kolejnym kroku, a cechy wizualne, na których skupiono uwagę, wpływają na dalsze generowanie sekwencji, tworząc pętlę zwrotną między modalnością wizualną a językową.
+
+W odróżnieniu od deterministycznego mechanizmu uwagi miękkiej, wprowadzono również jego stochastyczny wariant – uwagę twardą (\gls{gls:hard-attention}). Zamiast ważonej sumy, próbkuje ona stochastycznie jeden region obrazu w każdym kroku czasowym. Wiąże się to jednak ze znacznie większą złożonością procesu uczenia, wymagającego metod z obszaru uczenia ze wzmocnieniem.
+
+\subsection{Uwaga przestrzenna -- udoskonalenie przepływu informacji}
+Bazowy mechanizm uwagi miękkiej stał się punktem wyjścia dla wariantów optymalizujących przepływ informacji między koderem a dekoderem.
+
+W uwadze przestrzennej (\gls{gls:spatial-attention})~\cite{Lu2017KnowingWT} modyfikacja polega na uzależnieniu wektora kontekstu wizualnego $\mathbf{z}_t$ od bieżącego stanu ukrytego dekodera $\mathbf{h}_t$, a nie, jak poprzednio, od stanu z poprzedniego kroku czasowego $\mathbf{h}_{t-1}$. Taka zmiana implikuje, że model w danym kroku najpierw aktualizuje swój stan wewnętrzny na podstawie kontekstu lingwistycznego, a następnie, bazując na tym zaktualizowanym stanie, poszukuje relewantnych informacji wizualnych.
+
+W tym wariancie, w kroku $t$, najpierw aktualizowany jest stan ukryty LSTM na podstawie poprzedniego stanu ukrytego i wejścia $x_t$ obliczanego według:
+\begin{equation}
+    \mathbf{x_t}=[avg(\mathbf{V});e(y_{t-1})].\label{eq:uwaga_przestrzenna_xt}
+\end{equation}
+Dopiero ten nowy stan $\mathbf{h}_t$ jest wykorzystywany do wygenerowania zapytania, które posłuży do obliczenia ocen dopasowania $\mathbf{e}_{t}$ nad $l$ regionami obrazu:
+\begin{equation}
+    \mathbf{e}_{t,i} = \mathbf{w_h}^T \tanh(\mathbf{W}_v \mathbf{V} + (\mathbf{W}_g \mathbf{h}_t)\mathbf{1}^T ),
+\end{equation}
+gdzie $\mathbf{W}_v$, $\mathbf{W}_g$ oraz $\mathbf{w}_h$ są uczonymi parametrami modelu.
+
+Analogicznie do uwagi miękkiej, oceny te są normalizowane za pomocą funkcji softmax do postaci rozkładu $\mathbf{\alpha_t}$, na podstawie którego obliczany jest wektor kontekstu $\mathbf{z}_t$ jako ważona suma wektorów cech:
+\begin{equation}
+    \mathbf{z}_t = \sum_{i=1}^{l} \alpha_{ti} \mathbf{v}_{i}.
+        \label{eq:uwaga_przestrzenna_wektor_kontekstu}
+\end{equation}
+Wektor ten, w połączeniu z bieżącym stanem ukrytym $\mathbf{h}_t$, stanowi podstawę do predykcji rozkładu prawdopodobieństwa nad słownikiem dla słowa $y_t$:
+\begin{equation}
+    p(y_t | y_{1:t-1}, I) = \text{softmax}(\mathbf{W}_p(\mathbf{h}_t + \mathbf{z}_t)).
+    \label{eq:uwaga_przestrzenna_prawdopodobienstwo}
+\end{equation}
+
+\subsection{Uwaga adaptacyjna}
+Standardowe mechanizmy uwagi wymuszają wykorzystanie kontekstu wizualnego w każdym kroku czasowym generowania sekwencji. Takie podejście jest nieefektywne w przypadku predykcji słów o charakterze niewizualnym, takich jak spójniki czy przedimki, dla których dekoder wymaga jedynie ograniczonej ilości informacji wizualnej bądź nie potrzebuje jej wcale. Ponadto niektóre słowa, mimo swojego wizualnego charakteru, mogą być wiarygodnie przewidziane jedynie na podstawie wiedzy lingwistycznej zgromadzonej w dekoderze. W takich przypadkach obligatoryjne stosowanie mechanizmu uwagi może prowadzić do nieefektywnej alokacji zasobów obliczeniowych oraz potencjalnie degradować jakość generowanych podpisów.
+
+Rozwiązaniem tego problemu jest mechanizm uwagi adaptacyjnej (\gls{gls:adaptive-attention})~\cite{Lu2017KnowingWT}, który reguluje stopień, w jakim model opiera się na cechach wizualnych podczas predykcji danego słowa. Mechanizm ten stanowi rozszerzenie koncepcji uwagi przestrzennej o dodatkowy komponent strażnika wizualnego $\mathbf{s}_t$, którego działanie jest regulowane przez bramkę.
+
+Strażnik wizualny to alternatywne źródło informacji kontekstowej, gdy model decyduje o zmniejszeniu wpływu danych wizualnych. Wektor $\mathbf{s}_t$ reprezentuje wiedzę już zakodowaną w wewnętrznym stanie komórki LSTM, która obejmuje zarówno kontekst lingwistyczny, jak i przetworzone wcześniej cechy wizualne. Jest on uzyskiwany poprzez modyfikację standardowej architektury LSTM:
+
+\begin{equation}
+    \mathbf{s}_{t} = \boldsymbol{\beta}_{t} \odot \tanh(\mathbf{c}_{t}),
+    \label{eq:uwaga_adaptacyjna_straznik_wizualny}
+\end{equation}
+\begin{equation}
+    \boldsymbol{\beta}_{t} = \sigma(\mathbf{W}_{x}\mathbf{x}_{t} + \mathbf{W}_{h}\mathbf{h}_{t-1}),
+    \label{eq:uwaga_adaptacyjna_bramka_uwagi}
+\end{equation}
+gdzie $\boldsymbol{\beta}_t$ jest wektorem bramki strażnika wizualnego, $\sigma$ to funkcja sigmoidalna, $\mathbf{c}_t$ jest wektorem stanu komórki LSTM, a $\odot$ oznacza iloczyn Hadamarda, $\mathbf{W}_x$ oraz $\mathbf{W}_h$ są macierzami wag podlegającymi uczeniu.
+
+Finalny adaptacyjny wektor kontekstu $\mathbf{z}_{t}$ to ważona kombinacja przestrzennego wektora kontekstu $\mathbf{\hat{z}}_t$ z modelu uwagi przestrzennej, obliczonego według Wzoru~\ref{eq:uwaga_przestrzenna_wektor_kontekstu} oraz wektora strażnika wizualnego $\mathbf{s}_t$:
+
+\begin{equation}
+    \mathbf{z}_{t} = \boldsymbol{\beta}_{t}\mathbf{s}_{t} + (1-\boldsymbol{\beta}_{t})\mathbf{\hat{z}}_{t}. \label{eq:uwaga_adaptacyjna_wektor_kontekstu}
+\end{equation}
+
+Proporcje obu składowych w kroku czasowym $t$ są determinowane przez bramkę strażnika $\boldsymbol{\beta}_t$, która kontroluje stopień, w jakim dekoder opiera swoje predykcje na przestrzennym kontekście wizualnym $\mathbf{\hat{z}}_t$ w stosunku do wewnętrznie wygenerowanego wektora strażnika wizualnego $\mathbf{s}_t$. Bramka jest obliczana na podstawie znormalizowanego rozkładu uwagi $\hat{\boldsymbol{\alpha}}_{t}$ nad przestrzennymi cechami obrazu oraz wektorem strażnika wizualnego:
+\begin{equation}
+    \mathbf{\hat{\alpha}_{t}} = \text{softmax}([\mathbf{e}_t; \mathbf{w_{h}}^{T}\tanh(\mathbf{W_s s_t} + \mathbf{W_{b}}\mathbf{h}_{t})]),
+\end{equation}
+gdzie $\mathbf{e_t}$ to oceny uwagi dla regionów obrazu, a operacja $[;]$ oznacza konkatenację wektorów. Wartość $\boldsymbol{\beta}_t$ jest ostatnim elementem wektora $\mathbf{\hat{\alpha}_{t}}$.
+
+Dzięki temu, im wartość $\boldsymbol{\beta}_t$ jest bliższa 1, tym w większym stopniu predykcja opiera się na informacjach pochodzących ze strażnika wizualnego $\mathbf{s}_t$. Z drugiej strony, jeżeli $\boldsymbol{\beta}_t$ zbliża się do wartości 0, model przewiduje kolejne słowo, polegając na przestrzennym wektorze kontekstu $\mathbf{\hat{z}}_t$. Rozkład prawdopodobieństwa wygenerowania słów ze słownika jest obliczany na podstawie zsumowanego adaptacyjnego wektora kontekstu oraz wyjściowego stanu ukrytego $\mathbf{h}_t$ z sieci LSTM zgodnie z wzorem~\ref{eq:uwaga_przestrzenna_prawdopodobienstwo}.
+
+\subsection{Zmiana paradygmatu -- uwaga własna i mechanizmy hybrydowe}
+\label{rozdzial:uwaga_wlasna}
+W odróżnieniu od mechanizmów uwagi, które obliczają korelacje między zapytaniem z dekodera a cechami obrazu, mechanizm uwagi własnej (\gls{gls:self-attention})~\cite{Vaswani2017AttentionIA} operuje wyłącznie w obrębie jednego zbioru wektorów wejściowych. Jego celem jest modelowanie wzajemnych zależności pomiędzy tymi wektorami. W kontekście kodera obrazu wejście jest reprezentowane jako zbiór  $l$ wektorów cech $\mathbf{V} = \{\mathbf{v}_1, \mathbf{v}_2, ..., \mathbf{v}_l\}$, z których każdy odpowiada za określony region obrazu. Mechanizm uwagi własnej umożliwia każdemu regionowi agregację informacji z innych regionów. W rezultacie model jest w stanie lepiej zrozumieć relacje przestrzenne i semantyczne między elementami sceny, zanim informacja wizualna zostanie przekazana do dekodera.
+
+Mechanizm uwagi własnej opiera swoje działanie na macierzach $\mathbf{Q}$, 
+
+$\mathbf{K}$ i $\hat{\mathbf{V}}$, które są odrębnymi reprezentacjami wejściowych wektorów cech obrazu $\mathbf{V}$. 
+
+Projekcje te są realizowane poprzez mnożenie wejściowej macierzy $\mathbf{V}$ przez 
+
+trenowane macierze wag $\mathbf{W}_Q$, 
+
+$\mathbf{W}_K$, $\mathbf{W}_{\hat{V}}$, zgodnie z formułami:
+\begin{equation}
+    \mathbf{Q = V \space W}_Q, \quad \mathbf{K = V \space W}_K, \quad \mathbf{\hat{V}} = \mathbf{V} \space \mathbf{W}_{\hat{V}}.
+\end{equation}
+
+Wynikowa macierz uwagi to ważona suma wektorów wartości $\hat{\mathbf{V}}$, gdzie wagi określają zgodność zapytań $\mathbf{Q}$ z kluczami $\mathbf{K}$. Zgodność obliczana jest poprzez skalowaną uwagę skalarną:
+\begin{equation}
+    \text{Uwaga}(\mathbf{Q, K, \hat{V}}) = \text{softmax}\left(\frac{\mathbf{QK}^T}{\sqrt{d_k}}\right)\mathbf{\hat{V}}.
+    \label{eq:self_attention}
+\end{equation}
+Czynnik skalujący $\frac{1}{\sqrt{d_k}}$ stabilizuje gradienty podczas treningu, zapobiegając sytuacji, w której duże wartości iloczynu skalarnego prowadzą do nasycenia funkcji softmax.
+
+Mechanizm uwagi własnej wielogłowicowej stanowi rozszerzenie koncepcji uwagi własnej. Zamiast pojedynczej operacji uwagi model równolegle przetwarza informacje w $n$ podprzestrzeniach reprezentacji.
+Dla każdej z $n$ głowic wejściowe macierze zapytań $\mathbf{Q}$, kluczy $\mathbf{Q}$ i wartości $\hat{\mathbf{V}}$ są najpierw poddawane odrębnym transformacjom liniowym, tworząc $\mathbf{Q}_i$, $\mathbf{K}_i$ oraz $\hat{\mathbf{V}}_i$. Następnie, dla każdej głowicy $i \in \{1, ..., n\}$, funkcja uwagi jest obliczana niezależnie:
+\begin{equation}
+    head_i = \text{Uwaga}(\mathbf{Q_i, K_i, \hat{V}_i}).
+\end{equation}
+Wyniki uzyskane dla poszczególnych głowic są następnie konkatenowane, a powstała w ten sposób macierz jest przekształcana za pomocą kolejnej projekcji liniowej. Celem tej operacji jest integracja informacji pochodzących z różnych podprzestrzeni:
+\begin{equation}
+    f_{mh-att}(\mathbf{Q, K, \hat{V}}) = [head_1, ..., head_n] \label{wzor:uwaga_wieloglowicowa}.
+\end{equation}
+Dzięki temu każda głowica może wyspecjalizować się w wykrywaniu innego rodzaju relacji, co znacząco zwiększa zdolność modelu.
+
+Przykładem zaawansowanej architektury, która rozwija tę koncepcję, jest AoANet (Attention on Attention Network)~\cite{Huang2019attention}. Model ten adresuje ograniczenie standardowego mechanizmu uwagi, który generuje wektor kontekstu w sposób bezwarunkowy, niezależnie od faktycznej relewancji informacji zawartych w przetwarzanym sygnale.
+
+W tym celu autorzy wprowadzili moduł AoA, którego zadaniem jest ocena i dynamiczna kalibracja wektora wynikowego mechanizmu uwagi. Moduł ten, dla danego tensora zapytania $Q$ i rezultatu uwagi własnej $f_{att}(Q,K,\hat{V})$ generuje tensor informacji $I$ oraz tensor bramki uwagi $B$:
+\begin{equation}
+I= \mathbf{W_{QI}} Q + \mathbf{W_{VI}} f_{mh-att}(Q,K,\hat{V})) + b_I,\label{eq:uwaga_wlasna_tensor_informacji}
+\end{equation}
+\begin{equation}
+B= \sigma(\mathbf{W}_{QB}Q + \mathbf{W}_{VB} f_{mh-att}(Q,K,\hat{V}) + b_{B}),\label{eq:uwaga_wlasna_tensor_bramki_uwagi}
+\end{equation}
+gdzie $f_{mh-att}(Q,K,\hat{V})$ obliczane jest według wzoru na uwagę wielogłowicową~\ref{wzor:uwaga_wieloglowicowa}. 
+
+Finalnie rezultat przetwarzania przez moduł $AoA$ to iloczyn Hadamarda tensora informacji $I$ oraz tensora bramki uwagi $B$:
+\begin{equation}
+    AoA(f_{mh-att},Q,K,\hat{V})= B \odot I.\label{eq:uwaga_wlasna_modul_aoa}
+\end{equation}
+Dzięki elastyczności rozwiązania, jakim jest moduł $AoA$, rezultatem iloczynu w koderze z modułem $AoA$ jest macierz, a w przypadku dekodera z modułem $AoA$ wektor. Bramka $B$ selektywnie wzmacnia lub osłabia składowe tensora informacji $I$. Jest to swoisty filtr, który podczas treningu uczy się oczekiwanej wiedzy. Co istotne, parametry tensora $I$ oraz bramki uwagi $B$ są niezależnie trenowane.
+
+Architektura AoANet rozszerza standardową architekturę koder-dekoder o moduły AoA w koderze i dekoderze nazwane odpowiednio $AoA_e \quad AoA_d$, które udoskonalają wyjściowe cechy wizualne w obu modułach.
+
+Koder działa dwuetapowo, w pierwszym kroku obliczana jest uwaga wielogłowicowa $f_{mh-att}$, aby zamodelować relacje między regionami obrazu, zgodnie z procedurą opisaną w rozdziale~\ref{rozdzial:uwaga_wlasna}. Uzyskany rezultat jest przetwarzany przez moduł $AoA_e$, który ocenia istotność tych relacji dla globalnej reprezentacji obrazu. Proces ten jest powtarzany kilkukrotnie, a rezultat jest sumowany z oryginalną macierzą cech obrazu $\mathbf{V}$ i normalizowany. Finalna macierz udoskonalonych cech obrazu $\mathbf{V'}$ jest przekazywana do dekodera:
+\begin{equation}
+\mathbf{V'} = \text{LayerNorm}(\mathbf{V} + AoA_e(f_{mh-att}, \mathbf{W_{Qe} V, W_{Ke} V, W_{\hat{V}e} V)}).\label{eq:uwaga_wlasna_cechy_udoskonalone}
+\end{equation}
+
+Dekoder z modułem AoA jest oparty na LSTM i generuje podpis słowo po słowie. W każdym kroku $t$, sieć LSTM najpierw integruje informacje o dotychczas wygenerowanym fragmencie zdania z ogólnym kontekstem wizualnym obrazu. Na tej podstawie aktualizuje swój wewnętrzny stan ukryty $\mathbf{h}_t$. Zaktualizowany stan ukryty $\mathbf{h}_t$ pełni rolę zapytania $Q$ dla modułu AoA w dekoderze $AoA^d$. Moduł ten, wykorzystując udoskonalone cechy obrazu $\mathbf{v'}$ jako klucze $K$ i wartości $\hat{V}$, oblicza nowy wektor kontekstu wizualnego:
+\begin{equation}
+    \mathbf{z_t}= AoA_d(f_{mh-att}, \mathbf{W_{Qd} [h_t], W_{Kd} V', W_{Vd} V'}),
+    \label{eq:uwaga_własna_wektor_kontekstu}
+\end{equation}
+gdzie $f_{mh-att}$ to standardowy mechanizm uwagi wielogłowicowej omówiony w poprzedniej sekcji.
+
+Tak obliczony wektor kontekstu $\mathbf{z}_t$ służy do obliczenia rozkładu prawdopodobieństwa nad całym słownictwem dla słowa $y_t$:
+\begin{equation}
+    p(y_t | y_{1:t-1}, I) = \text{softmax}(\mathbf{W}_p(\mathbf{h}_t + \mathbf{z}_t)).
+\end{equation}
+
+\subsection{Podsumowanie i wpływ mechanizmu uwagi}
+
+Wprowadzenie mechanizmu uwagi stanowiło ważny krok w ewolucji architektur do generowania podpisów do obrazów. Dekoder uzyskał dostęp do pełnej, niezmienionej reprezentacji cech obrazu na każdym etapie generowania sekwencji wyjściowej, co przełożyło się to na generowanie bardziej precyzyjnych i kontekstowo adekwatnych podpisów.
+
+Mechanizm uwagi umożliwił monitorowanie działania modelu, a dzięki temu zrozumienie jego działania. Wagi uwagi $\alpha_{ti}$ można wizualizować w postaci map ciepła nałożonych na obraz wejściowy. Pozwala to na jakościową analizę procesu "rozumowania" modelu, czyli śledzenie, na których fragmentach obrazu koncentruje się on podczas predykcji poszczególnych słów~\cite{Xu2015ShowAttendTell}. 
+
+Sukces mechanizmu uwagi w efektywnym modelowaniu zależności dalekiego zasięgu stał się bezpośrednią inspiracją dla powstania architektur opartych wyłącznie na tym mechanizmie, takich jak Transformator~\cite{Vaswani2017AttentionIA}. Obecnie architektura transformatorowa zyskuje coraz większą popularność w zadaniach automatycznego generowania podpisów do obrazów~\cite{Cahyono2024automatedimagecaptioningcnns}. Rozwój metod z uwagą, od modeli CNN-RNN z uwagą aż po architektury oparte wyłącznie na tym mechanizmie podkreśla znaczenie tego rozwiązania dla postępu w modelowaniu sekwencyjnym i multimodalnym~\cite{Sutskever2014Seq2Seq, Cho2014Learning}.

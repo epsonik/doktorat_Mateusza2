@@ -1,0 +1,46 @@
+
+\begin{table}
+\caption{Zestawienie architektur sieci szkieletowych~\cite{ZestawienieCNN}.}
+\label{tab:zestawienie_cnn}
+\centering
+\begin{threeparttable}
+\begin{tabular}{|l|l|l|l|l|}
+\hline \textbf{\begin{tabular}[c]{@{}l@{}} Sieć \\szkieletowa\end{tabular}}& 
+\textbf{\begin{tabular}[c]{@{}l@{}} Rok \\powstania\end{tabular}}& 
+\textbf{\begin{tabular}[c]{@{}l@{}} Rozmiar wektora\\ cech obrazu\end{tabular}}&  \textbf{TOP-1\tnote{1}}                                       & \textbf{TOP-5\tnote{2}}                                        \\ \hline 
+
+
+
+
+
+
+
+InceptionV3~\cite{Szegedy2016RethinkingTI}  &2015& 2048 & 77,9 & 93,7 \\ \hline 
+VGG16~\cite{Simonyan15VeryDeep} & 2015&4096 & 71,3 & 90,1\\ \hline 
+VGG19~\cite{Simonyan15VeryDeep}  & 2015&4096 & 71,3 & 90,0 \\ \hline
+Resnet50~\cite{He2015Deep}   & 2015&2048 & 74,9 & 92,1 \\\hline
+Xception~\cite{Chollet2017Xception}   & 2016&2048 & 79 & 94,5 \\ \hline
+Resnet152V2~\cite{He2015Deep}  &2016& 2048 & 78 &94,2 \\ \hline
+Densenet201~\cite{huang2017densely}   &2016& 1920 & 77,3 &93,6 \\ \hline
+Densenet121~\cite{huang2017densely}  &2016&1024 & 75   & 92,3 \\ \hline
+Mobilenet~\cite{Howard2017Mobilenets}  & 2017&1000 & 70,4 & 89,5 \\ \hline 
+
+MobilenetV2~\cite{Howard2017Mobilenets}  &2018& 1280 &71,3 & 90,1 \\ \hline  
+
+
+
+
+
+
+ 
+
+
+\end{tabular}
+
+\begin{tablenotes}[para, flushleft]
+       \item [1] Dokładność TOP-1 i TOP-5 odnosi się do wydajności modelu na zbiorze walidacyjnym ImageNet.
+
+\end{tablenotes}
+
+\end{threeparttable}
+\end{table}

@@ -1,0 +1,15 @@
+\begin{table}
+\caption{Taksonomia osadzeń słów}\label{tab:taksonomia_embeddingow}
+\centering
+\fontsize{12pt}{12pt}\selectfont
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Metoda} & \textbf{Grupa} & \textbf{Opis} & \textbf{Kluczowe cechy}\ \\ \hline
+Word2vec & \begin{tabular}[c]{@{}l@{}}   Niezależne od\\ kontekstu \end{tabular}& \begin{tabular}[c]{@{}l@{}}  Przewiduje kontekst semantyczny słowa\\ za pomocą sieci neuronowej. \end{tabular}& \begin{tabular}[c]{@{}l@{}}  Odzwierciedla relacje między wyrazami,\\ dzięki CBOW i skip-gram \end{tabular}\\ \hline
+GloVe & \begin{tabular}[c]{@{}l@{}}   Niezależne od\\ kontekstu \end{tabular}& \begin{tabular}[c]{@{}l@{}}  Wykorzystuje faktoryzację macierzy do\\  identyfikacji globalnych cech języka. \end{tabular}& \begin{tabular}[c]{@{}l@{}}  Odzwierciedla globalne releacje i  \\ prawdpopodobieństwo występowania słowa. \end{tabular}\\ \hline
+FastText & \begin{tabular}[c]{@{}l@{}}   Niezależne\\ od kontekstu \end{tabular} & Modeluje słowa na poziomie n-gramów. & Obsługuje słowa spoza słownika. \\ \hline
+BERT & \begin{tabular}[c]{@{}l@{}} Zależne od\\ kontekstu \end{tabular}& \begin{tabular}[c]{@{}l@{}}  Wykorzystuje architekturę opartą na \\  transformatorach i maskowany\\ model językowy. \end{tabular}& \begin{tabular}[c]{@{}l@{}}  Generuje wektory osadzeń\\ zależne od   kontekstu \end{tabular}\\ \hline
+TF-IDF & \begin{tabular}[c]{@{}l@{}}  Inne \end{tabular} & \begin{tabular}[c]{@{}l@{}}  Ocenia wagę słowa w dokumencie w\\ odniesieniu do zbioru dokumentów. \end{tabular}& \begin{tabular}[c]{@{}l@{}}  Słowa, które występują\\ często w danym dokumencie,\\ ale rzadko w innych  dokumentach,\\ otrzymują wysoką wagę.\end{tabular} \\ \hline
+\end{tabular}}
+\end{table}
